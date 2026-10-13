@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import 'register_screen.dart';
+// นำเข้าเพิ่มเติมด้านบนของไฟล์
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
+import '../main_navigation_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -137,12 +141,36 @@ class _LoginScreenState extends State<LoginScreen> {
                     backgroundColor: AppColors.goldPrimary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                   ),
-                  onPressed: () {
+                  onPressed: () async {
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
                     // TODO: เชื่อมต่อระบบ Firebase Auth ภายหลัง
+                    bool success = await authProvider.signIn(
+                      email: _emailController.text.trim(),
+                      password: _passwordController.text.trim(),
+                    );
+
+                    if (success && mounted) {
+                      // ล็อกอินสำเร็จ ไปหน้าหลัก
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
+                      );
+                    } else if (mounted) {
+                      // แจ้งเตือนเมื่อเกิดข้อผิดพลาด
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Sign In Failed. Please check your email and password.')),
+                      );
+                    }
                   },
-                  child: const Text(
-                    'Sign In',
-                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+                  child: Consumer<AuthProvider>(
+                    builder: (context, auth, child) {
+                      return auth.isLoading
+                      ? const CircularProgressIndicator(color: Colors.black)
+                      : const Text(
+                        'Sign In',
+                        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+                      );
+                    }
                   ),
                 ),
               ),

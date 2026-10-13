@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+// นำเข้าเพิ่มเติมด้านบนของไฟล์
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
+import '../main_navigation_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -143,12 +147,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     backgroundColor: AppColors.goldPrimary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                   ),
-                  onPressed: () {
+                  onPressed: () async {
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
                     // TODO: เชื่อมต่อระบบสมัครสมาชิกภายหลัง
+                    bool success = await authProvider.signUp(
+                      email: _emailController.text.trim(),
+                      password: _passwordController.text.trim(),
+                      username: _usernameController.text.trim(),
+                      displayName: _displayNameController.text.trim(),
+                    );
+
+                    if (success && mounted) {
+                      // สมัครสมาชิกสำเร็จ พาไปหน้าหลักทันที
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
+                        (route) => false,
+                      );
+                    } else if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Registration Failed. Please try again.')),
+                      );
+                    }
                   },
-                  child: const Text(
-                    'Create Account',
-                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+                  child: Consumer<AuthProvider>(
+                    builder: (context, auth, child) {
+                      return auth.isLoading
+                      ? const CircularProgressIndicator(color: Colors.black)
+                      : const Text(
+                        'Create Account',
+                        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+                      );
+                    }
                   ),
                 ),
               ),
