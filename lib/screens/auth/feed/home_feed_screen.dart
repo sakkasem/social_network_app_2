@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '/core/theme/app_theme.dart';
-import '/models/post_model.dart';
 import 'package:provider/provider.dart';
 import '/providers/auth_provider.dart';
+import '/core/theme/app_theme.dart';
+import '/models/post_model.dart';
+import '/models/comment_model.dart';
 
 class HomeFeedScreen extends StatelessWidget {
   const HomeFeedScreen({super.key});
@@ -29,6 +30,191 @@ class HomeFeedScreen extends StatelessWidget {
     } catch (e) {
       debugPrint('Error updating like: $e');
     }
+  }
+
+  // ฟังก์ชันแสดง Modal Bottom Sheet สำหรับคอมเมนต์
+  void _showCommentsModal(BuildContext context, String postId) {
+    final TextEditingController commentController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 16,
+            left: 16,
+            right: 16,
+          ),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // แถบด้านบน
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Comments',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Divider(color: AppColors.border, height: 1),
+
+                // รายการคอมเมนต์เรียลไทม์
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('posts')
+                        .doc(postId)
+                        .collection('comments')
+                        .orderBy('createdAt', descending: true)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: AppColors.goldPrimary),
+                        );
+                      }
+
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'No comments yet. Start the conversation!',
+                            style: TextStyle(color: AppColors.textMuted),
+                          ),
+                        );
+                      }
+
+                      final docs = snapshot.data!.docs;
+
+                      return ListView.builder(
+                        itemCount: docs.length,
+                        itemBuilder: (context, index) {
+                          final comment = CommentModel.fromMap(
+                            docs[index].data() as Map<String, dynamic>,
+                            docs[index].id,
+                          );
+
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: AppColors.goldPrimary,
+                                  child: Text(
+                                    comment.displayName.isNotEmpty
+                                        ? comment.displayName[0].toUpperCase()
+                                        : 'U',
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        comment.displayName,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        comment.text,
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+
+                //ช่องพิมพ์ส่งคอมเมนต์
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: commentController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: const InputDecoration(
+                            hintText: 'Add a comment...',
+                            hintStyle: TextStyle(color: AppColors.textMuted),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.send, color: AppColors.goldPrimary),
+                        onPressed: () async {
+                          if (commentController.text.trim().isEmpty) return;
+
+                          final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
+                          if (user == null) return;
+
+                          final text = commentController.text.trim();
+                          commentController.clear();
+
+                          // บันทึกลง Subcollection 'comments' ของโพสต์นั้นๆ
+                          await FirebaseFirestore.instance
+                              .collection('posts')
+                              .doc(postId)
+                              .collection('comments')
+                              .add({
+                            'uid': user.uid,
+                            'displayName': user.displayName,
+                            'text': text,
+                            'createdAt': Timestamp.now(),
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -66,8 +252,6 @@ class HomeFeedScreen extends StatelessWidget {
             itemCount: docs.length,
             itemBuilder: (context, index) {
               final post = PostModel.fromMap(docs[index].data() as Map<String, dynamic>, docs[index].id);
-              
-              // เช็คว่าผู้ใช้ปัจจุบันกดไลก์โพสต์นี้รึยัง
               final bool isLiked = post.likes.contains(currentUserId);
 
               return Container(
@@ -81,7 +265,7 @@ class HomeFeedScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ส่วนหัว: ชื่อผู้ใช้
+                    // ส่วนหัว
                     Row(
                       children: [
                         CircleAvatar(
@@ -109,16 +293,14 @@ class HomeFeedScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // เนื้อหาโพสต์
                     Text(
                       post.content,
                       style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
                     ),
                     const SizedBox(height: 16),
-                    // แถบไอคอน Like / Comment
                     Row(
                       children: [
-                        // ปุ่มไลก์ที่กดได้จริง
+                        // ปุ่ม Like
                         InkWell(
                           onTap: () => _toggleLike(context, post.postId, post.likes),
                           child: Row(
@@ -141,13 +323,16 @@ class HomeFeedScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 24),
-                        // ปุ่มคอมเมนต์ (เดี๋ยวเรามาต่อกันได้ครับ)
-                        const Row(
-                          children: [
-                            Icon(Icons.chat_bubble_outline, color: AppColors.textMuted, size: 20),
-                            SizedBox(width: 6),
-                            Text('Comment', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                          ],
+                        // ปุ่ม Comment ที่กดเปิด Modal Sheet ได้แล้ว
+                        InkWell(
+                          onTap: () => _showCommentsModal(context, post.postId),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.chat_bubble_outline, color: AppColors.textMuted, size: 20),
+                              SizedBox(width: 6),
+                              Text('Comment', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                            ],
+                          ),
                         ),
                       ],
                     ),
