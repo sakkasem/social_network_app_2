@@ -4,6 +4,7 @@ import 'auth/feed/home_feed_screen.dart';
 import 'auth/feed/create_post_screen.dart';
 import 'auth/profile/profile_screen.dart';
 import 'auth/chat/chat_list_screen.dart';
+import 'auth/groups/groups_list_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -17,7 +18,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   final List<Widget> _pages = const [
     HomeFeedScreen(),
-    Center(child: Text('Groups', style: TextStyle(color: Colors.white, fontSize: 18))),
+    GroupsListScreen(),
     SizedBox.shrink(), // Placeholder สำหรับปุ่ม '+' ตรงกลาง
     ChatListScreen(),
     ProfileScreen(),
