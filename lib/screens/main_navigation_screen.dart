@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
+import 'auth/feed/home_feed_screen.dart';
+import 'auth/feed/create_post_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -12,7 +14,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = const [
-    Center(child: Text('Home Feed', style: TextStyle(color: Colors.white, fontSize: 18))),
+    HomeFeedScreen(),
     Center(child: Text('Groups', style: TextStyle(color: Colors.white, fontSize: 18))),
     SizedBox.shrink(), // Placeholder สำหรับปุ่ม '+' ตรงกลาง
     Center(child: Text('Chat Messages', style: TextStyle(color: Colors.white, fontSize: 18))),
@@ -22,6 +24,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void _onItemTapped(int index) {
     if (index == 2) {
       // เมื่อกดปุ่ม '+' ตรงกลาง สามารถเปิดหน้า Create Post ได้ที่นี่
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const CreatePostScreen()),
+      );
       debugPrint('Open Create Post Screen');
     } else {
       setState(() {
