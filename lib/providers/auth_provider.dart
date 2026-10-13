@@ -89,4 +89,20 @@ class AuthProvider with ChangeNotifier {
     _currentUser = null;
     notifyListeners();
   }
+  
+  // ฟังก์ชันสำหรับดึงข้อมูลผู้ใช้ปัจจุบันจาก Firestore มาอัปเดตใหม่
+  Future<void> reloadUserData() async {
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) return;
+    try {
+      DocumentSnapshot doc = await _firestore.collection('users').doc(firebaseUser!.uid).get();
+      if (doc.exists) {
+        _currentUser = UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error reloading user data: $e');
+    }
+  }
+  
 }

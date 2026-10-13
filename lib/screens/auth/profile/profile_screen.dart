@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '/core/theme/app_theme.dart';
 import '/providers/auth_provider.dart';
@@ -6,6 +7,75 @@ import '/screens/auth/login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
+  // ฟังก์ชันแสดง Dialog สำหรับแก้ไขชื่อโปรไฟล์
+  void _showEditProfileDialog(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.currentUser;
+    if (user == null) return;
+
+    final nameController = TextEditingController(text: user.displayName);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.cardBg,
+          title: const Text(
+            'Edit Profile',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: TextField(
+            controller: nameController,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              labelText: 'Display Name',
+              labelStyle: TextStyle(color: AppColors.textMuted),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.goldPrimary),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.goldPrimary),
+              onPressed: () async {
+                final newName = nameController.text.trim();
+                if (newName.isEmpty) return;
+
+                try {
+                  // อัปเดตข้อมูลใน Firestore
+                  await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+                    'displayName': newName,
+                  });
+
+                  // รีเฟรชข้อมูลใน AuthProvider ทันที
+                  await authProvider.reloadUserData();
+
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile updated successfully!')),
+                    );
+                  }
+                } catch (e) {
+                  debugPrint('Error updating profile: $e');
+                }
+              },
+              child: const Text('Save', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +96,13 @@ class ProfileScreen extends StatelessWidget {
             letterSpacing: 1,
           ),
         ),
+        actions: [
+          // ปุ่ม Edit Profile ด้านขวาบน
+          IconButton(
+            icon: const Icon(Icons.edit, color: AppColors.goldPrimary),
+            onPressed: () => _showEditProfileDialog(context),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -110,11 +187,9 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () async {
-                    // เรียกใช้งานฟังก์ชัน signOut
                     await authProvider.signOut();
 
                     if (context.mounted) {
-                      // เมื่อ Log out สำเร็จ เคลียร์หน้าทั้งหมดแล้วย้อนกลับไปหน้า Login
                       Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(
