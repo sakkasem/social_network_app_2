@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import 'auth/feed/home_feed_screen.dart';
 import 'auth/feed/create_post_screen.dart';
+import 'auth/profile/profile_screen.dart';
+import 'auth/chat/chat_list_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -17,8 +19,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     HomeFeedScreen(),
     Center(child: Text('Groups', style: TextStyle(color: Colors.white, fontSize: 18))),
     SizedBox.shrink(), // Placeholder สำหรับปุ่ม '+' ตรงกลาง
-    Center(child: Text('Chat Messages', style: TextStyle(color: Colors.white, fontSize: 18))),
-    Center(child: Text('User Profile', style: TextStyle(color: Colors.white, fontSize: 18))),
+    ChatListScreen(),
+    ProfileScreen(),
   ];
 
   void _onItemTapped(int index) {
