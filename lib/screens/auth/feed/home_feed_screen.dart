@@ -2,12 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '/core/theme/app_theme.dart';
 import '/models/post_model.dart';
+import 'package:provider/provider.dart';
+import '/providers/auth_provider.dart';
 
 class HomeFeedScreen extends StatelessWidget {
   const HomeFeedScreen({super.key});
 
+  // ฟังก์ชันสำหรับกด Like หรือ Unlike โพสต์
+  void _toggleLike(BuildContext context, String postId, List<String> currentLikes) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentUserId = authProvider.currentUser?.uid;
+
+    if (currentUserId == null) return;
+
+    List<String> updatedLikes = List.from(currentLikes);
+    if (updatedLikes.contains(currentUserId)) {
+      updatedLikes.remove(currentUserId); // ถ้าเคยไลก์แล้ว ให้เอาออก (Unlike)
+    } else {
+      updatedLikes.add(currentUserId); // ถ้ายังไม่ไลก์ ให้เพิ่มเข้าไป (Like)
+    }
+
+    try {
+      await FirebaseFirestore.instance.collection('posts').doc(postId).update({
+        'likes': updatedLikes,
+      });
+    } catch (e) {
+      debugPrint('Error updating like: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final currentUserId = Provider.of<AuthProvider>(context).currentUser?.uid ?? '';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -18,7 +45,6 @@ class HomeFeedScreen extends StatelessWidget {
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        // ดึงข้อมูลโพสต์เรียงจากล่าสุด
         stream: FirebaseFirestore.instance.collection('posts').orderBy('createdAt', descending: true).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -40,6 +66,9 @@ class HomeFeedScreen extends StatelessWidget {
             itemCount: docs.length,
             itemBuilder: (context, index) {
               final post = PostModel.fromMap(docs[index].data() as Map<String, dynamic>, docs[index].id);
+              
+              // เช็คว่าผู้ใช้ปัจจุบันกดไลก์โพสต์นี้รึยัง
+              final bool isLiked = post.likes.contains(currentUserId);
 
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -85,17 +114,41 @@ class HomeFeedScreen extends StatelessWidget {
                       post.content,
                       style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
                     ),
-                    const SizedBox(height: 12),
-                    // ไอคอนปุ่มไลก์ / คอมเมนต์
-                    const Row(
+                    const SizedBox(height: 16),
+                    // แถบไอคอน Like / Comment
+                    Row(
                       children: [
-                        Icon(Icons.favorite_border, color: AppColors.textMuted, size: 20),
-                        SizedBox(width: 6),
-                        Text('Like', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                        SizedBox(width: 20),
-                        Icon(Icons.chat_bubble_outline, color: AppColors.textMuted, size: 20),
-                        SizedBox(width: 6),
-                        Text('Comment', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                        // ปุ่มไลก์ที่กดได้จริง
+                        InkWell(
+                          onTap: () => _toggleLike(context, post.postId, post.likes),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isLiked ? Icons.favorite : Icons.favorite_border,
+                                color: isLiked ? Colors.redAccent : AppColors.textMuted,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${post.likes.length}',
+                                style: TextStyle(
+                                  color: isLiked ? Colors.redAccent : AppColors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        // ปุ่มคอมเมนต์ (เดี๋ยวเรามาต่อกันได้ครับ)
+                        const Row(
+                          children: [
+                            Icon(Icons.chat_bubble_outline, color: AppColors.textMuted, size: 20),
+                            SizedBox(width: 6),
+                            Text('Comment', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                          ],
+                        ),
                       ],
                     ),
                   ],
