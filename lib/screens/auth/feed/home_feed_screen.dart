@@ -297,6 +297,38 @@ class HomeFeedScreen extends StatelessWidget {
                       post.content,
                       style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
                     ),
+                    if (post.imageUrl.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          post.imageUrl,
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          // ใส่ Loading ตอนรูปกำลังโหลด
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              height: 200,
+                              color: AppColors.cardBg,
+                              child: const Center(
+                                child: CircularProgressIndicator(color: AppColors.goldPrimary),
+                              ),
+                            );
+                          },
+                          // จัดการกรณีโหลดรูปไม่สำเร็จ
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            height: 200,
+                            color: AppColors.cardBg,
+                            child: const Center(
+                              child: Icon(Icons.broken_image, color: AppColors.textMuted, size: 40),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    
                     const SizedBox(height: 16),
                     Row(
                       children: [

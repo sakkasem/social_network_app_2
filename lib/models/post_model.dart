@@ -6,7 +6,7 @@ class PostModel {
   final String username;
   final String displayName;
   final String content;
-  final String? mediaUrl;
+  final String imageUrl;
   final Timestamp createdAt;
   final List<String> likes;
 
@@ -16,7 +16,7 @@ class PostModel {
     required this.username,
     required this.displayName,
     required this.content,
-    this.mediaUrl,
+    required this.imageUrl,
     required this.createdAt,
     required this.likes,
   });
@@ -28,7 +28,7 @@ class PostModel {
       username: map['username'] ?? '',
       displayName: map['displayName'] ?? '',
       content: map['content'] ?? '',
-      mediaUrl: map['mediaUrl'],
+      imageUrl: map['imageUrl'] ?? '',
       createdAt: map['createdAt'] ?? Timestamp.now(),
       likes: List<String>.from(map['likes'] ?? []),
     );
@@ -40,7 +40,7 @@ class PostModel {
       'username': username,
       'displayName': displayName,
       'content': content,
-      'mediaUrl': mediaUrl,
+      'imageUrl': imageUrl,
       'createdAt': createdAt,
       'likes': likes,
     };
