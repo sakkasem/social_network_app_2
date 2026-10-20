@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -49,14 +52,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (user == null) return;
       String imageUrl = '';
 
-      // ถ้ามีการเลือกรูป ให้ทำการอัปโหลดขึ้น Firebase Storage
+      // ถ้ามีการเลือกรูป ให้ส่งไป Cloudinary
       if (_imageBytes != null) {
-        final ref = FirebaseStorage.instance
-        .ref()
-        .child('post_images')
-        .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
-        await ref.putData(_imageBytes!);
-        imageUrl = await ref.getDownloadURL();
+        imageUrl = await _uploadToCloudinary(_imageBytes!);
       }
 
       // บันทึกข้อมูลโพสต์ลง Firestore (รวม imageUrl)
@@ -75,6 +73,33 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       debugPrint('Error creating post: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+    // ฟังก์ชันอัปโหลดรูปไป Cloudinary (ฟรี ไม่ต้องใช้บัตร)
+  Future<String> _uploadToCloudinary(Uint8List imageBytes) async {
+    // ใส่ Cloud Name และ Upload Preset ที่สร้างไว้จากเว็บ Cloudinary ของคุณ
+    const cloudName = 'dn2ukurwr'; 
+    const uploadPreset = 'sigma888_preset';
+
+    final url = Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload');
+    
+    final request = http.MultipartRequest('POST', url)
+      ..fields['upload_preset'] = uploadPreset
+      ..files.add(http.MultipartFile.fromBytes(
+        'file',
+        imageBytes,
+        filename: 'post_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      ));
+
+    final response = await request.send();
+    
+    if (response.statusCode == 200) {
+      final responseData = await response.stream.bytesToString();
+      final jsonMap = json.decode(responseData);
+      return jsonMap['secure_url']; // ได้ลิงก์รูปภาพจริงกลับมาใช้งาน!
+    } else {
+      throw Exception('Failed to upload image to Cloudinary');
     }
   }
 
