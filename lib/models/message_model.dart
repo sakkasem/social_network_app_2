@@ -1,5 +1,8 @@
+/// SIGMA888: แทนข้อความแชต รวมถึงข้อความรูปภาพและเวลา
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// MessageModel เก็บโครงสร้างข้อมูลและช่วยแปลงข้อมูลระหว่างแอปกับ Firestore.
 class MessageModel {
   final String messageId;
   final String senderId;

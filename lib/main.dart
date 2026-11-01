@@ -1,3 +1,5 @@
+/// SIGMA888: จุดเริ่มต้นแอป ตั้งค่า Firebase, Provider และธีม
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +20,7 @@ void main() async {
   runApp(const MyApp());
 }
 
+/// MyApp รวมหน้าที่เฉพาะของส่วนประกอบนี้ไว้ในตำแหน่งเดียว.
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 

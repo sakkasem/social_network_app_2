@@ -1,3 +1,6 @@
+/// SIGMA888: แทนข้อมูลบัญชีผู้ใช้ที่แอปใช้หลังเข้าสู่ระบบ
+
+/// โมเดลบัญชีผู้ใช้ที่แอปใช้แสดงโปรไฟล์และระบุตัวตน.
 class UserModel {
   final String uid;
   final String email;
@@ -15,7 +18,7 @@ class UserModel {
     this.bio = '',
   });
 
-  // แปลงข้อมูลจาก Map (เช่น ดึงมาจาก Firestore/Database) เป็น UserModel
+  /// แปลงข้อมูลจากเอกสาร Firestore เป็น UserModel โดยใช้ document id เป็น uid.
   factory UserModel.fromMap(Map<String, dynamic> map, String docId) {
     return UserModel(
       uid: docId,
@@ -27,7 +30,7 @@ class UserModel {
     );
   }
 
-  // แปลงจาก UserModel เป็น Map สำหรับเตรียมเซฟลง Database
+  /// แปลง UserModel เป็น Map สำหรับบันทึกใน Firestore.
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,

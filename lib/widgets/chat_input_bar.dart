@@ -1,7 +1,10 @@
+/// SIGMA888: แสดงแถบพิมพ์แชต ปุ่มรูป อีโมจิ และส่งข้อความ
+
 import 'package:flutter/material.dart';
 
 import '/core/theme/app_theme.dart';
 
+/// แถบรับข้อความที่รองรับการเลือกภาพ เปิดตัวเลือกอีโมจิ และส่งข้อความ.
 class ChatInputBar extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
@@ -18,6 +21,7 @@ class ChatInputBar extends StatelessWidget {
     required this.onPickImage,
   });
 
+  /// แทนอีโมจิในช่วงข้อความที่เลือก หรือแทรกที่ตำแหน่งเคอร์เซอร์ปัจจุบัน.
   void _insertEmoji(BuildContext context, String emoji) {
     final oldValue = controller.value;
     final selection = oldValue.selection;
@@ -31,6 +35,7 @@ class ChatInputBar extends StatelessWidget {
     Navigator.pop(context);
   }
 
+  /// เปิดแผ่นเลือกอีโมจิและเพิ่มตัวเลือกลงในช่องพิมพ์เมื่อถูกแตะ.
   void _showEmojiPicker(BuildContext context) {
     const emojis = [
       '😀', '😁', '😂', '🤣', '😊', '😍', '🥰', '😘',

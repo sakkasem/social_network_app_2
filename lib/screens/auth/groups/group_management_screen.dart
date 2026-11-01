@@ -1,3 +1,5 @@
+/// SIGMA888: ให้ผู้สร้างกลุ่มดูและนำสมาชิกออกจากกลุ่ม
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +7,7 @@ import 'package:provider/provider.dart';
 import '/core/theme/app_theme.dart';
 import '/providers/auth_provider.dart';
 
+/// GroupManagementScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class GroupManagementScreen extends StatelessWidget {
   final String groupId;
   final String groupName;

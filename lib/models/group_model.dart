@@ -1,5 +1,8 @@
+/// SIGMA888: แทนข้อมูลกลุ่มและจัดการแปลงข้อมูล Firestore
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// GroupModel เก็บโครงสร้างข้อมูลและช่วยแปลงข้อมูลระหว่างแอปกับ Firestore.
 class GroupModel {
   final String groupId;
   final String name;

@@ -1,15 +1,20 @@
 rules_version = '2';
+// กฎ Firestore ของ SIGMA888: ตรวจตัวตนและสิทธิ์ก่อนอ่าน/เขียนแต่ละคอลเลกชัน
 service cloud.firestore {
   match /databases/{database}/documents {
+    // helper กลาง: ใช้ยืนยันว่าคำขอมี Firebase Authentication อยู่แล้ว
     function signedIn() {
       return request.auth != null;
     }
 
+    // ตรวจเจ้าของโพสต์ โดยอ่านเอกสารต้นทางก่อนอนุญาตให้จัดการคอมเมนต์
     function ownsPost(postId) {
       return signedIn()
         && get(/databases/$(database)/documents/posts/$(postId)).data.uid == request.auth.uid;
     }
 
+    // อนุญาตเฉพาะการเปลี่ยนแปลง likes แบบเพิ่ม/ถอน uid หนึ่งรายการ
+    // เงื่อนไข diff ป้องกันไม่ให้การกดไลก์เปลี่ยนเนื้อหาหรือฟิลด์อื่นไปพร้อมกัน
     function isLikeOnlyChange() {
       return signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
@@ -27,6 +32,8 @@ service cloud.firestore {
         );
     }
 
+    // โพสต์หลัก: ผู้ใช้ที่ล็อกอินอ่านได้, สร้างได้เฉพาะ uid ตนเอง,
+    // แก้เนื้อหา/ลบได้โดยเจ้าของ และอนุญาตการเปลี่ยน likes ตาม helper ด้านบน
     match /posts/{postId} {
       allow read: if signedIn();
       allow create: if signedIn()
@@ -43,6 +50,8 @@ service cloud.firestore {
       );
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
 
+      // คอมเมนต์ต้องผูกกับโพสต์ที่มีอยู่; ผู้เขียนแก้ไข/ลบของตนเองได้
+      // เจ้าของโพสต์สามารถลบคอมเมนต์ในโพสต์ของตนเพื่อดูแลเนื้อหา
       match /comments/{commentId} {
         allow read: if signedIn();
         allow create: if signedIn()
@@ -62,6 +71,7 @@ service cloud.firestore {
       }
     }
 
+    // เอกสารผู้ใช้: ผู้ใช้ที่ล็อกอินอ่านได้ แต่เจ้าของบัญชีเท่านั้นที่เขียนข้อมูลโปรไฟล์
     match /users/{userId} {
       allow read: if signedIn();
       allow create: if signedIn() && request.auth.uid == userId;
@@ -77,6 +87,8 @@ service cloud.firestore {
         && request.resource.data.photoUrl.size() <= 2048;
       allow delete: if false;
 
+      // แจ้งเตือนเป็นข้อมูลส่วนตัว: ผู้รับอ่าน/แก้สถานะอ่าน/ลบได้
+      // ผู้สร้างแจ้งเตือนต้องเป็น actor และต้องมีการโต้ตอบจริงกับโพสต์ผู้รับ
       match /notifications/{notificationId} {
         allow read: if signedIn() && request.auth.uid == userId;
         allow create: if signedIn()
@@ -100,6 +112,7 @@ service cloud.firestore {
         allow delete: if signedIn() && request.auth.uid == userId;
       }
 
+      // ความสัมพันธ์ติดตาม: อ่านได้เมื่อ login; สร้าง/ลบได้โดยบัญชีผู้ติดตามเอง
       match /following/{targetUid} {
         // Follower counts use a signed-in collection-group aggregate query.
         allow read: if signedIn();
@@ -112,6 +125,7 @@ service cloud.firestore {
         allow update: if false;
       }
 
+      // คำขอเป็นเพื่อนมองเห็นได้เฉพาะผู้ส่งและผู้รับที่เกี่ยวข้อง
       match /friendRequests/{senderUid} {
         allow read: if signedIn()
           && (request.auth.uid == userId || request.auth.uid == senderUid);
@@ -126,6 +140,7 @@ service cloud.firestore {
         allow update: if false;
       }
 
+      // รายการบล็อกส่วนตัวของผู้ใช้; ตรวจ uid ใน path และ payload ให้ตรงกัน
       match /blocked/{targetUid} {
         allow read: if signedIn() && request.auth.uid == userId;
         allow create: if signedIn()
@@ -140,6 +155,7 @@ service cloud.firestore {
         allow update: if false;
       }
 
+      // รายการ mirror ใช้ให้ผู้ถูกบล็อกเห็นความสัมพันธ์ฝั่งตน โดยผู้บล็อกเป็นผู้เขียน
       match /blockedBy/{blockerUid} {
         allow read: if signedIn() && request.auth.uid == userId;
         allow create: if signedIn()
@@ -155,6 +171,8 @@ service cloud.firestore {
       }
     }
 
+    // รับเฉพาะการสร้างรายงานที่ระบุผู้รายงานและเป้าหมายถูกต้อง
+    // อ่าน/แก้/ลบรายงานปิดไว้สำหรับ client ทั่วไป
     match /reports/{reportId} {
       allow create: if signedIn()
         && request.resource.data.reporterUid == request.auth.uid
@@ -172,6 +190,7 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
+    // เอกสาร friendship อ่านหรือลบได้เฉพาะสมาชิกหนึ่งในคู่สนทนานั้น
     match /friendships/{friendshipId} {
       allow get: if signedIn()
         && (resource == null || resource.data.participants.hasAny([request.auth.uid]));
@@ -190,6 +209,7 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // Metadata ห้องแชตส่วนตัวจำกัดเฉพาะ uid ที่อยู่ใน participants
     match /chat_rooms/{roomId} {
       allow get: if signedIn()
         && (resource == null || resource.data.participants.hasAny([request.auth.uid]));
@@ -214,6 +234,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // กลุ่ม: helper ตรวจสมาชิกจากเอกสารกลุ่มก่อนอนุญาตเข้าถึงเนื้อหาภายใน
     match /groups/{groupId} {
       function groupMember() {
         return signedIn()
@@ -251,6 +272,7 @@ service cloud.firestore {
           && request.resource.data.coverPhotoUrl.size() <= 2048)
       );
       allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+      // ข้อความกลุ่มอ่าน/สร้างได้เฉพาะสมาชิก และสร้างได้ในนามผู้ใช้ปัจจุบัน
       match /messages/{messageId} {
         allow read: if signedIn()
           && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
@@ -261,6 +283,7 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      // โพสต์และคอมเมนต์ในกลุ่มจำกัดสมาชิก; ปฏิกิริยาและการลบมีข้อจำกัดเฉพาะ
       match /posts/{postId} {
         allow read: if groupMember();
         allow create: if groupMember()
@@ -311,6 +334,7 @@ service cloud.firestore {
       }
     }
 
+    // ข้อความส่วนตัว: ผู้ใช้ต้องเป็นสมาชิกห้อง และ uid ผู้ส่งต้องตรงกับบัญชีที่ยืนยันตัวตน
     match /chat_rooms/{roomId}/messages/{messageId} {
       allow read: if signedIn()
         && get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.participants.hasAny([request.auth.uid]);

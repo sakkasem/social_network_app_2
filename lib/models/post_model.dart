@@ -1,5 +1,8 @@
+/// SIGMA888: แทนโพสต์ ฟิลด์ผู้เขียน รูปภาพ ไลก์ และเวลา
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// โมเดลโพสต์ที่เก็บผู้เขียน เนื้อหา รูปภาพ ไลก์ และเวลา รวมถึงแปลงข้อมูล Firestore.
 class PostModel {
   final String postId;
   final String uid;
@@ -23,6 +26,7 @@ class PostModel {
     required this.likes,
   });
 
+  /// สร้างโมเดลจากข้อมูล Firestore และใช้ document id เป็น postId.
   factory PostModel.fromMap(Map<String, dynamic> map, String docId) {
     return PostModel(
       postId: docId,
@@ -37,6 +41,7 @@ class PostModel {
     );
   }
 
+  /// แปลงฟิลด์ของโมเดลเป็น Map สำหรับบันทึกใน Firestore.
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,

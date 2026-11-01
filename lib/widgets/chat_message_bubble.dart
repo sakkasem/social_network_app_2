@@ -1,9 +1,12 @@
+/// SIGMA888: แสดง bubble ข้อความหรือภาพ พร้อมผู้ส่งและเวลา
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '/core/theme/app_theme.dart';
 import '/widgets/post_author_avatar.dart';
 
+/// Bubble สำหรับแสดงข้อความหรือภาพ พร้อมแยกสีตามผู้ส่งและแสดงเวลา.
 class ChatMessageBubble extends StatelessWidget {
   final String senderId;
   final String senderName;

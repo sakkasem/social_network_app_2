@@ -1,3 +1,5 @@
+/// SIGMA888: แสดงแบบฟอร์มสมัครบัญชี SIGMA888
+
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 // นำเข้าเพิ่มเติมด้านบนของไฟล์
@@ -5,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../main_navigation_screen.dart';
 
+/// RegisterScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -12,6 +15,7 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
+/// _RegisterScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();

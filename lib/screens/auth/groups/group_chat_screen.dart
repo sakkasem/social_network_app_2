@@ -1,3 +1,5 @@
+/// SIGMA888: แสดงและส่งข้อความหรือรูปภาพในแชตกลุ่ม
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +11,7 @@ import '/services/cloudinary_service.dart';
 import '/widgets/chat_input_bar.dart';
 import '/widgets/chat_message_bubble.dart';
 
+/// GroupChatScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class GroupChatScreen extends StatefulWidget {
   final String groupId;
   final String groupName;
@@ -23,10 +26,12 @@ class GroupChatScreen extends StatefulWidget {
   State<GroupChatScreen> createState() => _GroupChatScreenState();
 }
 
+/// _GroupChatScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _GroupChatScreenState extends State<GroupChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   bool _isSending = false;
 
+  /// ส่งข้อความตัวอักษรของสมาชิกปัจจุบันไปยังห้องแชตของกลุ่ม.
   Future<void> _sendMessage() async {
     final user = context.read<AuthProvider>().currentUser;
     final text = _messageController.text.trim();
@@ -45,6 +50,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
   }
 
+  /// เลือกรูป อัปโหลดผ่าน Cloudinary และบันทึก URL เป็นข้อความรูปภาพในกลุ่ม.
   Future<void> _pickAndSendImage() async {
     final user = context.read<AuthProvider>().currentUser;
     if (user == null || _isSending) return;
@@ -62,6 +68,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
   }
 
+  /// บันทึกข้อความและ metadata ผู้ส่งลง subcollection messages ของกลุ่ม.
   Future<void> _persistMessage({
     required String senderId,
     required String senderName,

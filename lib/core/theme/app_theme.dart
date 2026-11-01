@@ -1,5 +1,8 @@
+/// SIGMA888: รวมค่าสีและธีมหลักสำหรับหน้าตาดำ-ทองของ SIGMA888
+
 import 'package:flutter/material.dart';
 
+/// AppColors รวมค่าสีมาตรฐานที่หน้าจอต่าง ๆ ใช้ร่วมกัน.
 class AppColors {
   static const Color background = Color(0xFF0D0D0D); // ดำสนิท
   static const Color cardBg = Color(0xFF171717);     // สีพื้นหลังการ์ด
@@ -10,6 +13,7 @@ class AppColors {
   static const Color border = Color(0xFF262626);      // สีเส้นขอบ
 }
 
+/// AppTheme สร้าง ThemeData หลักของแอป.
 class AppTheme {
   static ThemeData get darkTheme {
     return ThemeData.dark().copyWith(

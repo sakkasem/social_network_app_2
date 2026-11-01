@@ -1,3 +1,5 @@
+/// SIGMA888: ค้นหาบัญชีผู้ใช้และเปิดหน้าโปรไฟล์
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +8,7 @@ import '/core/theme/app_theme.dart';
 import '/providers/auth_provider.dart';
 import 'user_profile_screen.dart';
 
+/// SearchUsersScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class SearchUsersScreen extends StatefulWidget {
   const SearchUsersScreen({super.key});
 
@@ -13,6 +16,7 @@ class SearchUsersScreen extends StatefulWidget {
   State<SearchUsersScreen> createState() => _SearchUsersScreenState();
 }
 
+/// _SearchUsersScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _SearchUsersScreenState extends State<SearchUsersScreen> {
   final _searchController = TextEditingController();
   String _query = '';

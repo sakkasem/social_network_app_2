@@ -1,3 +1,5 @@
+/// SIGMA888: แสดงโปรไฟล์ตนเองและจัดการข้อมูลบัญชี
+
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,9 +14,11 @@ import '/screens/auth/login_screen.dart';
 import '/screens/auth/profile/profile_layout.dart';
 import '/services/cloudinary_service.dart';
 
+/// ProfileScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
+  /// เปิด dialog ให้เจ้าของบัญชีแก้ไขข้อมูลโปรไฟล์ของตนเอง.
   Future<void> _editProfile(BuildContext context, UserModel user) async {
     final updated = await showDialog<bool>(
       context: context,
@@ -27,6 +31,7 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
+  /// แสดงตัวเลือกบัญชีและคำสั่งออกจากระบบ.
   void _showSettings(BuildContext context, UserModel user) {
     final auth = context.read<AuthProvider>();
     showModalBottomSheet<void>(
@@ -105,6 +110,7 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
+/// _EditProfileDialog แสดงกล่องโต้ตอบสำหรับรับข้อมูลหรือยืนยันการทำงาน.
 class _EditProfileDialog extends StatefulWidget {
   final UserModel user;
   const _EditProfileDialog({required this.user});
@@ -113,6 +119,7 @@ class _EditProfileDialog extends StatefulWidget {
   State<_EditProfileDialog> createState() => _EditProfileDialogState();
 }
 
+/// _EditProfileDialogState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _EditProfileDialogState extends State<_EditProfileDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _bioController;
@@ -133,6 +140,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
     super.dispose();
   }
 
+  /// เปิดแกลเลอรีและเก็บไบต์รูปใหม่ไว้ก่อนบันทึกโปรไฟล์.
   Future<void> _pickPhoto() async {
     try {
       final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 75);
@@ -148,6 +156,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
 
   void _message(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
+  /// อัปโหลดรูปถ้ามี แล้วบันทึกชื่อ ประวัติ และ URL ลง Firestore/provider.
   Future<void> _save() async {
     final name = _nameController.text.trim();
     final bio = _bioController.text.trim();

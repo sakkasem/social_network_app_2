@@ -1,3 +1,5 @@
+/// SIGMA888: แสดงกลุ่มและจัดการสร้าง เข้าร่วม หรือออกจากกลุ่ม
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +9,7 @@ import '/providers/auth_provider.dart';
 import 'group_detail_screen.dart';
 import 'group_management_screen.dart';
 
+/// GroupsListScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class GroupsListScreen extends StatefulWidget {
   const GroupsListScreen({super.key});
 
@@ -14,6 +17,7 @@ class GroupsListScreen extends StatefulWidget {
   State<GroupsListScreen> createState() => _GroupsListScreenState();
 }
 
+/// _GroupsListScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _GroupsListScreenState extends State<GroupsListScreen> {
 
   // Dialog สำหรับสร้างกลุ่มใหม่

@@ -1,3 +1,5 @@
+/// SIGMA888: แสดงรายละเอียดกลุ่ม Feed สมาชิก และสร้างโพสต์ในกลุ่ม
+
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -13,6 +15,7 @@ import '/widgets/post_author_avatar.dart';
 import 'group_chat_screen.dart';
 import 'group_management_screen.dart';
 
+/// GroupDetailScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class GroupDetailScreen extends StatefulWidget {
   final String groupId;
   final String groupName;
@@ -23,10 +26,12 @@ class GroupDetailScreen extends StatefulWidget {
   State<GroupDetailScreen> createState() => _GroupDetailScreenState();
 }
 
+/// _GroupDetailScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _GroupDetailScreenState extends State<GroupDetailScreen> {
   final _firestore = FirebaseFirestore.instance;
   bool _updatingCover = false;
 
+  /// เลือกภาพปก อัปโหลด Cloudinary และอัปเดต URL ของกลุ่ม.
   Future<void> _changeCoverPhoto() async {
     try {
       final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
@@ -43,6 +48,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     }
   }
 
+  /// เข้าร่วมหรือออกจากกลุ่มด้วย atomic array transform บนฟิลด์ members.
   Future<void> _toggleMembership(List<String> members, String uid) async {
     final ref = _firestore.collection('groups').doc(widget.groupId);
     final isMember = members.contains(uid);
@@ -55,6 +61,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     }
   }
 
+  /// เปิดตัวสร้างโพสต์กลุ่มสำหรับสมาชิก.
   Future<void> _createPost() async {
     final created = await showDialog<bool>(
       context: context,
@@ -207,6 +214,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   }
 }
 
+/// _GroupCover รวมหน้าที่เฉพาะของส่วนประกอบนี้ไว้ในตำแหน่งเดียว.
 class _GroupCover extends StatelessWidget {
   final String coverUrl;
   final int memberCount;
@@ -266,6 +274,7 @@ class _GroupCover extends StatelessWidget {
       );
 }
 
+/// _GroupFeedTab รวมหน้าที่เฉพาะของส่วนประกอบนี้ไว้ในตำแหน่งเดียว.
 class _GroupFeedTab extends StatelessWidget {
   final String groupId;
   final bool isMember;
@@ -325,6 +334,7 @@ class _GroupFeedTab extends StatelessWidget {
   }
 }
 
+/// _GroupPostCard รวมหน้าที่เฉพาะของส่วนประกอบนี้ไว้ในตำแหน่งเดียว.
 class _GroupPostCard extends StatelessWidget {
   final String groupId;
   final PostModel post;
@@ -392,6 +402,7 @@ class _GroupPostCard extends StatelessWidget {
                       : () async {
                           try {
                             await postRef.update({
+                              // เพิ่มหรือนำ uid ออกจาก likes แบบ atomic โดยไม่แทนทั้งรายการ
                               'likes': isLiked ? FieldValue.arrayRemove([user.uid]) : FieldValue.arrayUnion([user.uid]),
                             });
                           } catch (_) {
@@ -425,6 +436,7 @@ class _GroupPostCard extends StatelessWidget {
     return '${date.day}/${date.month}/${date.year}';
   }
 
+  /// แสดงคอมเมนต์ของโพสต์ในกลุ่ม และรองรับการเพิ่มคอมเมนต์จากหน้าต่างนี้.
   static Future<void> _showComments(BuildContext context, String groupId, String postId) async {
     final user = context.read<AuthProvider>().currentUser;
     if (user == null) return;
@@ -496,6 +508,7 @@ class _GroupPostCard extends StatelessWidget {
   }
 }
 
+/// _GroupMembersTab รวมหน้าที่เฉพาะของส่วนประกอบนี้ไว้ในตำแหน่งเดียว.
 class _GroupMembersTab extends StatelessWidget {
   final List<String> members;
   final String creatorUid;
@@ -532,6 +545,7 @@ class _GroupMembersTab extends StatelessWidget {
   }
 }
 
+/// _CreateGroupPostDialog แสดงกล่องโต้ตอบสำหรับรับข้อมูลหรือยืนยันการทำงาน.
 class _CreateGroupPostDialog extends StatefulWidget {
   final String groupId;
   const _CreateGroupPostDialog({required this.groupId});
@@ -540,6 +554,7 @@ class _CreateGroupPostDialog extends StatefulWidget {
   State<_CreateGroupPostDialog> createState() => _CreateGroupPostDialogState();
 }
 
+/// _CreateGroupPostDialogState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _CreateGroupPostDialogState extends State<_CreateGroupPostDialog> {
   final _contentController = TextEditingController();
   Uint8List? _imageBytes;
@@ -551,6 +566,7 @@ class _CreateGroupPostDialogState extends State<_CreateGroupPostDialog> {
     super.dispose();
   }
 
+  /// เลือกรูปเพื่อแนบกับโพสต์กลุ่มและเก็บไบต์ไว้ใน state ของ dialog.
   Future<void> _pickImage() async {
     try {
       final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 75);
@@ -562,6 +578,7 @@ class _CreateGroupPostDialogState extends State<_CreateGroupPostDialog> {
     }
   }
 
+  /// อัปโหลดรูปถ้ามี แล้วสร้างโพสต์ใน subcollection ของกลุ่ม.
   Future<void> _publish() async {
     final user = context.read<AuthProvider>().currentUser;
     final content = _contentController.text.trim();

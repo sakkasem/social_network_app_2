@@ -1,3 +1,5 @@
+/// SIGMA888: แสดง Inbox ของห้องสนทนาส่วนตัวที่มีข้อความล่าสุด
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +9,7 @@ import '/providers/auth_provider.dart';
 import '/screens/auth/profile/search_users_screen.dart';
 import 'chat_room_screen.dart';
 
+/// ChatListScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
 
@@ -14,6 +17,7 @@ class ChatListScreen extends StatefulWidget {
   State<ChatListScreen> createState() => _ChatListScreenState();
 }
 
+/// _ChatListScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _ChatListScreenState extends State<ChatListScreen> {
   @override
   Widget build(BuildContext context) {
@@ -148,6 +152,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     );
   }
 
+  /// แปลงเวลาของข้อความล่าสุดเป็นข้อความสั้นที่เหมาะกับรายการ Inbox.
   String _formatTime(Timestamp? timestamp) {
     if (timestamp == null) return '';
     final date = timestamp.toDate();

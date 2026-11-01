@@ -1,8 +1,11 @@
+/// SIGMA888: จัดการสถานะผู้ใช้ การสมัคร เข้าสู่ระบบ ออกจากระบบ และโหลดโปรไฟล์
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 
+/// Provider สถานะยืนยันตัวตน: เก็บโปรไฟล์ปัจจุบันและประสาน Firebase Auth กับ Firestore.
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -13,7 +16,7 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
-  // ฟังก์ชันสมัครสมาชิก (Register)
+  /// สร้างบัญชี Firebase Auth และเอกสารโปรไฟล์ Firestore; คืน true เมื่อสำเร็จ.
   Future<bool> signUp({
     required String email,
     required String password,
@@ -52,7 +55,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // ฟังก์ชันเข้าสู่ระบบ (Sign In)
+  /// เข้าสู่ระบบด้วยอีเมล/รหัสผ่านและโหลดโปรไฟล์ Firestore; คืน false เมื่อผิดพลาด.
   Future<bool> signIn({
     required String email,
     required String password,
@@ -83,14 +86,14 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // ฟังก์ชันออกจากระบบ
+  /// ออกจาก Firebase Auth ล้างผู้ใช้ปัจจุบัน และแจ้งผู้ฟังให้วาดหน้าจอใหม่.
   Future<void> signOut() async {
     await _auth.signOut();
     _currentUser = null;
     notifyListeners();
   }
   
-  // ฟังก์ชันสำหรับดึงข้อมูลผู้ใช้ปัจจุบันจาก Firestore มาอัปเดตใหม่
+  /// โหลดเอกสารผู้ใช้ที่ล็อกอินอยู่ซ้ำและแจ้งผู้ฟังเมื่อข้อมูลโปรไฟล์เปลี่ยน.
   Future<void> reloadUserData() async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
     if (firebaseUser == null) return;

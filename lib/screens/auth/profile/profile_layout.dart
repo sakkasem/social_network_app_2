@@ -1,10 +1,12 @@
+/// SIGMA888: ใช้เลย์เอาต์โปรไฟล์แบบ Instagram ร่วมกัน รวมสถิติ ไฮไลต์ และ Grid โพสต์
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '/core/theme/app_theme.dart';
 import '/models/post_model.dart';
 
-/// Shared Instagram-inspired layout for the signed-in profile and other users.
+/// เลย์เอาต์โปรไฟล์ร่วมที่แสดงข้อมูล สถิติ ไฮไลต์ และโพสต์ของผู้ใช้ทั้งตนเองและผู้อื่น.
 class InstagramProfileLayout extends StatefulWidget {
   final String userId;
   final String displayName;
@@ -29,6 +31,7 @@ class InstagramProfileLayout extends StatefulWidget {
   State<InstagramProfileLayout> createState() => _InstagramProfileLayoutState();
 }
 
+/// _InstagramProfileLayoutState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _InstagramProfileLayoutState extends State<InstagramProfileLayout> {
   late Future<_ProfileStats> _statsFuture;
 
@@ -44,6 +47,7 @@ class _InstagramProfileLayoutState extends State<InstagramProfileLayout> {
     if (oldWidget.userId != widget.userId) _statsFuture = _loadStats();
   }
 
+  /// ดึงจำนวนโพสต์ ผู้ติดตาม และกำลังติดตามจาก Firestore เพื่อแสดงใน header.
   Future<_ProfileStats> _loadStats() async {
     final firestore = FirebaseFirestore.instance;
     final results = await Future.wait([
@@ -142,6 +146,7 @@ class _InstagramProfileLayoutState extends State<InstagramProfileLayout> {
       );
 }
 
+/// เก็บจำนวนโพสต์ ผู้ติดตาม และกำลังติดตามที่โหลดจาก Firestore.
 class _ProfileStats {
   final int posts;
   final int followers;
@@ -150,6 +155,7 @@ class _ProfileStats {
   const _ProfileStats({required this.posts, required this.followers, required this.following});
 }
 
+/// แสดงตัวเลขสถิติหนึ่งค่าและชื่อกำกับในแถวสถิติโปรไฟล์.
 class _StatItem extends StatelessWidget {
   final String value;
   final String label;
@@ -167,6 +173,7 @@ class _StatItem extends StatelessWidget {
       );
 }
 
+/// แสดงรูปโปรไฟล์วงกลม และภาพสำรองเมื่อไม่มี URL หรือโหลดรูปไม่ได้.
 class _ProfileAvatar extends StatelessWidget {
   final String name;
   final String photoUrl;
@@ -188,6 +195,7 @@ class _ProfileAvatar extends StatelessWidget {
       );
 }
 
+/// แสดงแถววงกลมสำหรับ Story Highlights และปุ่มสร้างไฮไลต์ใหม่.
 class _StoryHighlights extends StatelessWidget {
   final bool isOwnProfile;
 
@@ -230,6 +238,7 @@ class _StoryHighlights extends StatelessWidget {
       );
 }
 
+/// กำหนดขนาดและการวาด TabBar ที่ตรึงอยู่ในส่วนหัวของ NestedScrollView.
 class _TabHeaderDelegate extends SliverPersistentHeaderDelegate {
   final TabBar tabBar;
 
@@ -251,6 +260,7 @@ class _TabHeaderDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _TabHeaderDelegate oldDelegate) => oldDelegate.tabBar != tabBar;
 }
 
+/// ดึงโพสต์ของผู้ใช้และแสดงภาพหรือข้อความในตารางสามคอลัมน์.
 class _ProfilePostGrid extends StatefulWidget {
   final String userId;
 
@@ -260,6 +270,7 @@ class _ProfilePostGrid extends StatefulWidget {
   State<_ProfilePostGrid> createState() => _ProfilePostGridState();
 }
 
+/// _ProfilePostGridState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _ProfilePostGridState extends State<_ProfilePostGrid> {
   @override
   Widget build(BuildContext context) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -343,6 +354,7 @@ class _ProfilePostGridState extends State<_ProfilePostGrid> {
       );
 }
 
+/// แสดงสถานะว่างหรือสถานะผิดพลาดของส่วน Grid โปรไฟล์.
 class _ProfilePlaceholder extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -370,6 +382,7 @@ class _ProfilePlaceholder extends StatelessWidget {
       );
 }
 
+/// แสดงรายละเอียดโพสต์ที่เลือกจาก Grid พร้อมคอมเมนต์ที่เกี่ยวข้อง.
 class _PostDetailScreen extends StatelessWidget {
   final PostModel post;
 

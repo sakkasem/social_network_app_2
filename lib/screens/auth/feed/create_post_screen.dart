@@ -1,3 +1,5 @@
+/// SIGMA888: เลือกภาพ อัปโหลด Cloudinary และสร้างโพสต์ใน Feed หลัก
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +9,7 @@ import '/core/theme/app_theme.dart';
 import '/providers/auth_provider.dart';
 import '/services/cloudinary_service.dart';
 
+/// CreatePostScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
 
@@ -14,12 +17,14 @@ class CreatePostScreen extends StatefulWidget {
   State<CreatePostScreen> createState() => _CreatePostScreenState();
 }
 
+/// _CreatePostScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _CreatePostScreenState extends State<CreatePostScreen> {
   final _contentController = TextEditingController();
   // เพิ่มบรรทัดประกาศตัวแปรเหล่านี้ครับ
   Uint8List? _imageBytes;
   bool _isLoading = false;
 
+  /// เปิดแกลเลอรีและเก็บไบต์รูปที่เลือกไว้ใน state เพื่อแสดงตัวอย่างก่อนโพสต์.
   Future<void> _pickImage() async {
   try {
     final picker = ImagePicker();
@@ -46,7 +51,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 }
 
-  // ฟังก์ชันอัปโหลดรูปไป Firebase Storage แล้วส่งโพสต์
+  /// โหลดโปรไฟล์ล่าสุด อัปโหลดรูปถ้ามี และสร้างเอกสารโพสต์ใน Firestore.
+  /// แสดงข้อผิดพลาดแก่ผู้ใช้ และคืนสถานะ loading เมื่อทำงานเสร็จ.
   Future<void> _submitPost() async {
     if (_contentController.text.trim().isEmpty && _imageBytes == null) return;
     setState(() => _isLoading = true);
@@ -56,7 +62,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (user == null) throw Exception('กรุณาเข้าสู่ระบบก่อนสร้างโพสต์');
       String imageUrl = '';
 
-      // ถ้ามีการเลือกรูป ให้ส่งไป Cloudinary
+      // ถ้ามีการเลือกรูป ให้อัปโหลดไป Cloudinary ก่อนเพื่อให้ได้ URL สำหรับโพสต์
       if (_imageBytes != null) {
         try {
           imageUrl = await CloudinaryService.uploadImage(_imageBytes!, filenamePrefix: 'post');
@@ -66,13 +72,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         }
       }
 
-      // บันทึกข้อมูลโพสต์ลง Firestore (รวม imageUrl)
+      // อ่านข้อมูลล่าสุดจาก users เพราะข้อมูลรูปใน Firebase Auth อาจยังไม่อัปเดต
       final profileSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final profile = profileSnapshot.data();
       final latestDisplayName = (profile?['displayName'] ?? user.displayName).toString();
       final latestUsername = (profile?['username'] ?? user.username).toString();
       final latestPhotoUrl = (profile?['photoUrl'] ?? user.photoUrl ?? '').toString();
 
+      // เก็บ display name และ photo URL ล่าสุดไว้กับโพสต์เพื่อใช้แสดงใน Feed
       await FirebaseFirestore.instance.collection('posts').add({
         'uid': user.uid,
         'displayName': latestDisplayName,
@@ -107,7 +114,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     super.dispose();
   }
 
-    // ฟังก์ชันอัปโหลดรูปไป Cloudinary (ฟรี ไม่ต้องใช้บัตร)
+  /// สร้างหน้าจอกรอกเนื้อหา แนบรูปตัวอย่าง และเรียกส่งโพสต์.
   @override
   Widget build(BuildContext context) {
     return Scaffold(

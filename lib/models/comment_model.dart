@@ -1,5 +1,8 @@
+/// SIGMA888: แปลงข้อมูลคอมเมนต์ Firestore เป็นโมเดลและกลับเป็น Map
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// CommentModel เก็บโครงสร้างข้อมูลและช่วยแปลงข้อมูลระหว่างแอปกับ Firestore.
 class CommentModel {
   final String commentId;
   final String uid;

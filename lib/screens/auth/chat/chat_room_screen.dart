@@ -1,3 +1,5 @@
+/// SIGMA888: แสดงและส่งข้อความหรือรูปภาพในการสนทนาส่วนตัว
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,6 +13,7 @@ import '/widgets/chat_input_bar.dart';
 import '/widgets/chat_message_bubble.dart';
 import '/widgets/post_author_avatar.dart';
 
+/// ChatRoomScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class ChatRoomScreen extends StatefulWidget {
   final String receiverId;
   final String receiverName;
@@ -25,16 +28,19 @@ class ChatRoomScreen extends StatefulWidget {
   State<ChatRoomScreen> createState() => _ChatRoomScreenState();
 }
 
+/// _ChatRoomScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final TextEditingController _messageController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isSending = false;
 
+  /// สร้าง room id แบบคงที่จาก uid ทั้งคู่ เพื่อให้คู่สนทนาได้ห้องเดียวกัน.
   String _chatRoomId(String currentUserId, String targetUserId) =>
       currentUserId.compareTo(targetUserId) > 0
           ? '${currentUserId}_$targetUserId'
           : '${targetUserId}_$currentUserId';
 
+  /// ตรวจข้อความและผู้ใช้ก่อนส่งข้อความตัวอักษร พร้อมแจ้งเมื่อส่งไม่สำเร็จ.
   Future<void> _sendMessage() async {
     final currentUser = context.read<AuthProvider>().currentUser;
     final text = _messageController.text.trim();
@@ -54,6 +60,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
+  /// เลือกรูปจากแกลเลอรี อัปโหลด Cloudinary แล้วส่ง URL เป็นข้อความรูปภาพ.
   Future<void> _pickAndSendImage() async {
     final currentUser = context.read<AuthProvider>().currentUser;
     if (currentUser == null || currentUser.uid == widget.receiverId || _isSending) return;
@@ -76,6 +83,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
+  /// บันทึกข้อความและปรับ metadata ห้องแชตใน transaction เดียวกัน.
+  /// รับผู้ส่ง ข้อความ และ URL รูปที่อาจไม่มี; ไม่คืนค่าเมื่อเขียนสำเร็จ.
   Future<void> _persistMessage({
     required String senderId,
     required String senderName,
@@ -88,6 +97,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     final messageRef = roomRef.collection('messages').doc();
     final lastMessage = imageUrl.isEmpty ? text : '📷 Photo';
 
+    // อ่านห้องก่อน: สร้าง metadata เมื่อเป็นการคุยครั้งแรก หรืออัปเดตข้อความล่าสุด
     await _firestore.runTransaction((transaction) async {
       final room = await transaction.get(roomRef);
       final roomUpdate = {
@@ -107,6 +117,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           },
         });
       }
+      // เขียนเอกสารข้อความพร้อมชนิดและ server timestamp ใน transaction เดียวกัน
       transaction.set(messageRef, {
         'senderId': senderId,
         'receiverId': widget.receiverId,

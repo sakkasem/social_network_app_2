@@ -1,10 +1,11 @@
+/// SIGMA888: แสดงรูปผู้เขียนจากโปรไฟล์ Firestore แบบสด พร้อมภาพสำรอง
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '/core/theme/app_theme.dart';
 
-/// Shows the author's current Firestore avatar, falling back to the avatar URL
-/// stored on older post documents while the live user document loads.
+/// แสดงรูปโปรไฟล์ล่าสุดจาก Firestore และใช้ URL ที่บันทึกในโพสต์เก่าเป็นภาพสำรอง.
 class PostAuthorAvatar extends StatelessWidget {
   final String uid;
   final String displayName;

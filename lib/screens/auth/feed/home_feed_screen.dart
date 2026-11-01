@@ -1,3 +1,5 @@
+/// SIGMA888: แสดง Feed หลักและจัดการไลก์ คอมเมนต์ โพสต์ รายงาน และการบล็อก
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -9,6 +11,7 @@ import '/models/post_model.dart';
 import '/models/comment_model.dart';
 import '/widgets/post_author_avatar.dart';
 
+/// HomeFeedScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({super.key});
 
@@ -16,6 +19,7 @@ class HomeFeedScreen extends StatefulWidget {
   State<HomeFeedScreen> createState() => _HomeFeedScreenState();
 }
 
+/// _HomeFeedScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _HomeFeedScreenState extends State<HomeFeedScreen> {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _blockedSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _blockedBySubscription;
@@ -34,6 +38,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     if (uid != _blockListUid) _listenToBlockLists(uid);
   }
 
+  /// ฟังรายการที่ผู้ใช้บล็อกและรายการผู้ใช้ที่บล็อกเขา เพื่อกรองโพสต์ทั้งสองทิศทาง.
   void _listenToBlockLists(String? uid) {
     _blockedSubscription?.cancel();
     _blockedBySubscription?.cancel();
@@ -46,6 +51,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     _blockListError = null;
     if (uid == null) return;
 
+    // รวมข้อมูลจากสอง stream แล้วอัปเดตชุด uid ที่ใช้ซ่อนโพสต์
     void update() {
       if (!mounted) return;
       setState(() {
@@ -80,6 +86,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     super.dispose();
   }
 
+  /// ส่งรายงานโพสต์ไป Firestore และแจ้งผลการทำงานแก่ผู้ใช้.
   Future<void> _reportPost(PostModel post) async {
     final reasonController = TextEditingController();
     final reason = await showDialog<String>(
@@ -118,6 +125,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
+  /// สร้างเอกสารแจ้งเตือนให้เจ้าของโพสต์เมื่อผู้ใช้อื่นโต้ตอบกับโพสต์.
   Future<void> _createNotification({
     required String recipientUid,
     required String postId,
@@ -148,7 +156,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  // ฟังก์ชันสำหรับกด Like หรือ Unlike โพสต์
+  /// สลับสถานะไลก์ของผู้ใช้ปัจจุบันบนโพสต์.
+  /// ใช้ atomic array transform เพื่อไม่เขียนทับไลก์ที่เพิ่มพร้อมกันจากอุปกรณ์อื่น.
   Future<void> _toggleLike(BuildContext context, PostModel post) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.currentUser;
@@ -158,6 +167,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
     final isRemovingLike = post.likes.contains(currentUserId);
     try {
+      // Firestore เพิ่ม/ลบเฉพาะ uid นี้ โดยไม่ต้องอ่านและเขียนทับ array ทั้งชุด
       await FirebaseFirestore.instance.collection('posts').doc(post.postId).update({
         'likes': isRemovingLike
             ? FieldValue.arrayRemove([currentUserId])
@@ -185,6 +195,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   }
 
   // ฟังก์ชันแสดง Modal Bottom Sheet สำหรับคอมเมนต์
+  /// เปิดตัวแก้ไขข้อความโพสต์และบันทึกข้อความใหม่เมื่อผู้ใช้ยืนยัน.
   Future<void> _editPost(PostModel post) async {
     final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
     if (user == null || user.uid != post.uid) return;
@@ -229,6 +240,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
+  /// ขอการยืนยันก่อนลบโพสต์ และตรวจสิทธิ์เจ้าของโพสต์ก่อนเขียนลบ.
   Future<void> _confirmDeletePost(PostModel post) async {
     final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
     if (user == null || user.uid != post.uid) return;
@@ -280,6 +292,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
+  /// เปิดหน้าต่างแสดงและเพิ่มคอมเมนต์ของโพสต์ที่ระบุ.
   void _showCommentsModal(BuildContext context, String postId) {
     final parentContext = context;
     final TextEditingController commentController = TextEditingController();
@@ -528,6 +541,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
           final docs = (snapshot.data?.docs ?? []).where((doc) {
             final post = PostModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+            // ซ่อนโพสต์ของคนที่เราบล็อกหรือคนที่บล็อกเรา
             return !_blockedUsers.contains(post.uid);
           }).toList();
 

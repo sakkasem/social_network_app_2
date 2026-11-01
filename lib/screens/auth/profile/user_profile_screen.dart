@@ -1,3 +1,5 @@
+/// SIGMA888: แสดงโปรไฟล์ผู้ใช้อื่น พร้อมติดตาม เป็นเพื่อน บล็อก และรายงาน
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +9,7 @@ import '/providers/auth_provider.dart';
 import '/screens/auth/chat/chat_room_screen.dart';
 import '/screens/auth/profile/profile_layout.dart';
 
+/// UserProfileScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class UserProfileScreen extends StatefulWidget {
   final String userId;
 
@@ -16,6 +19,7 @@ class UserProfileScreen extends StatefulWidget {
   State<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
+/// _UserProfileScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final _firestore = FirebaseFirestore.instance;
   Map<String, dynamic>? _profile;
@@ -33,6 +37,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String? get _currentUid =>
       Provider.of<AuthProvider>(context, listen: false).currentUser?.uid;
 
+  /// คืน document id แบบคงที่เพื่อให้ทั้งสองคนอ้าง friendship document เดียวกัน.
   String _friendshipId(String first, String second) {
     final pair = [first, second]..sort((a, b) => b.compareTo(a));
     return '${pair[0]}_${pair[1]}';
@@ -44,6 +49,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     _loadProfileAndRelationships();
   }
 
+  /// โหลดโปรไฟล์และสถานะติดตาม/เพื่อน/บล็อกที่เกี่ยวข้องกับผู้ใช้เป้าหมาย.
   Future<void> _loadProfileAndRelationships() async {
     final currentUid = _currentUid;
     if (currentUid == null) {
@@ -91,6 +97,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  /// ครอบการกระทำ async ด้วยสถานะ busy และจัดการข้อผิดพลาดเพื่อแสดงแก่ผู้ใช้.
   Future<void> _runAction(Future<void> Function() action) async {
     if (_isBusy) return;
     setState(() => _isBusy = true);
@@ -109,6 +116,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  /// เพิ่มหรือลบเอกสาร following เพื่อเปลี่ยนสถานะติดตาม.
   Future<void> _toggleFollow() async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -127,6 +135,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  /// สร้างคำขอเป็นเพื่อนไปยังผู้ใช้เป้าหมาย.
   Future<void> _sendFriendRequest() async {
     final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
     if (currentUser == null) return;
@@ -143,6 +152,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     });
   }
 
+  /// ยกเลิกคำขอเป็นเพื่อนที่ผู้ใช้ปัจจุบันส่งออกไป.
   Future<void> _cancelFriendRequest() async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -154,6 +164,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         .delete();
   }
 
+  /// ยอมรับคำขอและสร้าง friendship จากนั้นลบคำขอที่รอดำเนินการ.
   Future<void> _acceptFriendRequest() async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -172,6 +183,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     await batch.commit();
   }
 
+  /// ปฏิเสธคำขอเป็นเพื่อนที่เข้ามาและลบเอกสารคำขอนั้น.
   Future<void> _rejectFriendRequest() async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -183,6 +195,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         .delete();
   }
 
+  /// ยุติความสัมพันธ์เพื่อนโดยลบเอกสาร friendship ที่ใช้ร่วมกัน.
   Future<void> _unfriend() async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -192,6 +205,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         .delete();
   }
 
+  /// เพิ่ม/ลบรายการบล็อกและเอกสาร mirror ด้วย batch ให้การเปลี่ยนแปลงเป็นชุดเดียว.
   Future<void> _toggleBlock() async {
     final currentUid = _currentUid;
     if (currentUid == null || currentUid == widget.userId) return;
@@ -211,6 +225,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     await batch.commit();
   }
 
+  /// ส่งรายงานผู้ใช้ไปยังคอลเลกชัน reports เพื่อให้ตรวจสอบภายหลัง.
   Future<void> _reportUser() async {
     final reasonController = TextEditingController();
     final reason = await showDialog<String>(

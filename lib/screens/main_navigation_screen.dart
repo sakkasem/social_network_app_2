@@ -1,3 +1,5 @@
+/// SIGMA888: ประกอบแท็บหลักของแอปและควบคุมหน้าที่เลือกอยู่
+
 import 'package:flutter/material.dart';
 import '../core/theme/app_theme.dart';
 import 'auth/feed/home_feed_screen.dart';
@@ -6,6 +8,7 @@ import 'auth/profile/profile_screen.dart';
 import 'auth/chat/chat_list_screen.dart';
 import 'auth/groups/groups_list_screen.dart';
 
+/// MainNavigationScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -13,6 +16,7 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
+/// _MainNavigationScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
