@@ -1,8 +1,13 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
 import '/core/theme/app_theme.dart';
 import '/providers/auth_provider.dart';
+import '/services/cloudinary_service.dart';
+import '/widgets/chat_input_bar.dart';
+import '/widgets/chat_message_bubble.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final String groupId;
@@ -20,35 +25,57 @@ class GroupChatScreen extends StatefulWidget {
 
 class _GroupChatScreenState extends State<GroupChatScreen> {
   final TextEditingController _messageController = TextEditingController();
+  bool _isSending = false;
 
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty) return;
-
-    final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
-    if (user == null) return;
-
+    final user = context.read<AuthProvider>().currentUser;
     final text = _messageController.text.trim();
+    if (text.isEmpty || user == null || _isSending) return;
     _messageController.clear();
-
+    setState(() => _isSending = true);
     try {
-      await FirebaseFirestore.instance
-          .collection('groups')
-          .doc(widget.groupId)
-          .collection('messages')
-          .add({
-        'senderId': user.uid,
-        'senderName': user.displayName,
-        'message': text,
-        'timestamp': Timestamp.now(),
-      });
+      await _persistMessage(senderId: user.uid, senderName: user.displayName, text: text);
     } catch (_) {
       if (mounted) {
         _messageController.text = text;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not send message. Please try again.')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send message. Please try again.')));
       }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
     }
+  }
+
+  Future<void> _pickAndSendImage() async {
+    final user = context.read<AuthProvider>().currentUser;
+    if (user == null || _isSending) return;
+    try {
+      final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (picked == null || !mounted) return;
+      setState(() => _isSending = true);
+      final bytes = await picked.readAsBytes();
+      final imageUrl = await CloudinaryService.uploadImage(bytes, filenamePrefix: 'group_chat_${widget.groupId}');
+      await _persistMessage(senderId: user.uid, senderName: user.displayName, text: '📷 Photo', imageUrl: imageUrl);
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not upload or send the photo. Please try again.')));
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  Future<void> _persistMessage({
+    required String senderId,
+    required String senderName,
+    required String text,
+    String imageUrl = '',
+  }) async {
+    await FirebaseFirestore.instance.collection('groups').doc(widget.groupId).collection('messages').add({
+      'senderId': senderId,
+      'senderName': senderName,
+      'message': text,
+      'imageUrl': imageUrl,
+      'type': imageUrl.isEmpty ? 'text' : 'image',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
   }
 
   @override
@@ -59,25 +86,31 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = Provider.of<AuthProvider>(context).currentUser?.uid ?? '';
+    final currentUserId = context.watch<AuthProvider>().currentUser?.uid ?? '';
+    final messages = FirebaseFirestore.instance
+        .collection('groups')
+        .doc(widget.groupId)
+        .collection('messages')
+        .orderBy('timestamp', descending: true);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: Text(widget.groupName, style: const TextStyle(color: Colors.white, fontSize: 16)),
         iconTheme: const IconThemeData(color: Colors.white),
+        title: Row(
+          children: [
+            const CircleAvatar(radius: 17, backgroundColor: AppColors.cardBg, child: Icon(Icons.groups_outlined, color: AppColors.goldPrimary, size: 19)),
+            const SizedBox(width: 10),
+            Expanded(child: Text(widget.groupName, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 16))),
+          ],
+        ),
       ),
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('groups')
-                  .doc(widget.groupId)
-                  .collection('messages')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: messages.snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(
@@ -88,85 +121,37 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     ),
                   );
                 }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: AppColors.goldPrimary));
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text('No messages in this group yet.', style: TextStyle(color: AppColors.textMuted)),
-                  );
-                }
-
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.goldPrimary));
                 final docs = snapshot.data!.docs;
+                if (docs.isEmpty) return const Center(child: Text('No messages in this group yet.', style: TextStyle(color: AppColors.textMuted)));
 
                 return ListView.builder(
                   reverse: true,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
-                    final isMe = data['senderId'] == currentUserId;
-
-                    return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isMe ? AppColors.goldPrimary : AppColors.cardBg,
-                          borderRadius: BorderRadius.circular(12),
-                          border: isMe ? null : Border.all(color: AppColors.border),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                          children: [
-                            if (!isMe)
-                              Text(
-                                data['senderName'] ?? 'Member',
-                                style: const TextStyle(
-                                  color: AppColors.goldPrimary,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            Text(
-                              data['message'] ?? '',
-                              style: TextStyle(
-                                color: isMe ? Colors.black : Colors.white,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    final data = docs[index].data();
+                    final senderId = (data['senderId'] ?? '').toString();
+                    final isMe = senderId == currentUserId;
+                    return ChatMessageBubble(
+                      senderId: senderId,
+                      senderName: (data['senderName'] ?? 'Member').toString(),
+                      isMe: isMe,
+                      message: (data['message'] ?? '').toString(),
+                      imageUrl: (data['imageUrl'] ?? '').toString(),
+                      timestamp: data['timestamp'] is Timestamp ? data['timestamp'] as Timestamp : null,
                     );
                   },
                 );
               },
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(12),
-            color: AppColors.cardBg,
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      hintText: 'Type a group message...',
-                      hintStyle: TextStyle(color: AppColors.textMuted),
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.send, color: AppColors.goldPrimary),
-                  onPressed: _sendMessage,
-                ),
-              ],
-            ),
+          ChatInputBar(
+            controller: _messageController,
+            hintText: 'Message the group…',
+            isBusy: _isSending,
+            onSend: _sendMessage,
+            onPickImage: _pickAndSendImage,
           ),
         ],
       ),

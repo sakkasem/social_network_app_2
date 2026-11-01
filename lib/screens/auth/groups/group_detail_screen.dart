@@ -9,6 +9,7 @@ import '/core/theme/app_theme.dart';
 import '/models/post_model.dart';
 import '/providers/auth_provider.dart';
 import '/services/cloudinary_service.dart';
+import '/widgets/post_author_avatar.dart';
 import 'group_chat_screen.dart';
 import 'group_management_screen.dart';
 
@@ -346,10 +347,11 @@ class _GroupPostCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
+                PostAuthorAvatar(
+                  uid: post.uid,
+                  displayName: post.displayName,
+                  photoUrl: post.userPhotoUrl,
                   radius: 18,
-                  backgroundColor: AppColors.goldPrimary,
-                  child: Text(post.displayName.isNotEmpty ? post.displayName[0].toUpperCase() : 'U', style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -570,11 +572,18 @@ class _CreateGroupPostDialogState extends State<_CreateGroupPostDialog> {
       if (_imageBytes != null) {
         imageUrl = await CloudinaryService.uploadImage(_imageBytes!, filenamePrefix: 'group_post');
       }
+      final profileSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final profile = profileSnapshot.data();
+      final latestDisplayName = (profile?['displayName'] ?? user.displayName).toString();
+      final latestUsername = (profile?['username'] ?? user.username).toString();
+      final latestPhotoUrl = (profile?['photoUrl'] ?? user.photoUrl ?? '').toString();
+
       await FirebaseFirestore.instance.collection('groups').doc(widget.groupId).collection('posts').add({
         'groupId': widget.groupId,
         'uid': user.uid,
-        'username': user.username,
-        'displayName': user.displayName,
+        'username': latestUsername,
+        'displayName': latestDisplayName,
+        'userPhotoUrl': latestPhotoUrl,
         'content': content,
         'imageUrl': imageUrl,
         'likes': <String>[],

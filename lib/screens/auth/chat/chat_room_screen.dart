@@ -1,9 +1,15 @@
-import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
 import '/core/theme/app_theme.dart';
-import '/providers/auth_provider.dart';
 import '/models/message_model.dart';
+import '/providers/auth_provider.dart';
+import '/services/cloudinary_service.dart';
+import '/widgets/chat_input_bar.dart';
+import '/widgets/chat_message_bubble.dart';
+import '/widgets/post_author_avatar.dart';
 
 class ChatRoomScreen extends StatefulWidget {
   final String receiverId;
@@ -22,67 +28,94 @@ class ChatRoomScreen extends StatefulWidget {
 class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final TextEditingController _messageController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _isSending = false;
 
-  // สร้าง ChatRoom ID ที่ไม่ซ้ำกันโดยเรียงตาม UID ของทั้งสองคน
-  String getChatRoomId(String currentUserId, String targetUserId) {
-    if (currentUserId.compareTo(targetUserId) > 0) {
-      return '${currentUserId}_$targetUserId';
-    } else {
-      return '${targetUserId}_$currentUserId';
+  String _chatRoomId(String currentUserId, String targetUserId) =>
+      currentUserId.compareTo(targetUserId) > 0
+          ? '${currentUserId}_$targetUserId'
+          : '${targetUserId}_$currentUserId';
+
+  Future<void> _sendMessage() async {
+    final currentUser = context.read<AuthProvider>().currentUser;
+    final text = _messageController.text.trim();
+    if (text.isEmpty || currentUser == null || currentUser.uid == widget.receiverId || _isSending) return;
+
+    _messageController.clear();
+    setState(() => _isSending = true);
+    try {
+      await _persistMessage(senderId: currentUser.uid, senderName: currentUser.displayName, text: text);
+    } catch (_) {
+      if (mounted) {
+        _messageController.text = text;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send message. Please try again.')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
     }
   }
 
-  void _sendMessage() async {
-    if (_messageController.text.trim().isEmpty) return;
-
-    final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
-    if (currentUser == null || currentUser.uid == widget.receiverId) return;
-    final currentUserId = currentUser.uid;
-
-    final messageText = _messageController.text.trim();
-    _messageController.clear();
-
-    final chatRoomId = getChatRoomId(currentUserId, widget.receiverId);
-
-    final participants = [currentUserId, widget.receiverId]
-      ..sort((a, b) => b.compareTo(a));
-    final roomRef = _firestore.collection('chat_rooms').doc(chatRoomId);
-    final messageRef = roomRef.collection('messages').doc();
+  Future<void> _pickAndSendImage() async {
+    final currentUser = context.read<AuthProvider>().currentUser;
+    if (currentUser == null || currentUser.uid == widget.receiverId || _isSending) return;
     try {
-      await _firestore.runTransaction((transaction) async {
-        final room = await transaction.get(roomRef);
-        final latestMessage = {
-          'lastMessage': messageText,
-          'lastMessageAt': FieldValue.serverTimestamp(),
-          'lastSenderId': currentUserId,
-        };
-        if (room.exists) {
-          transaction.update(roomRef, latestMessage);
-        } else {
-          transaction.set(roomRef, {
-            ...latestMessage,
-            'participants': participants,
-            'participantNames': {
-              currentUserId: currentUser.displayName,
-              widget.receiverId: widget.receiverName,
-            },
-          });
-        }
-        transaction.set(messageRef, {
-          'senderId': currentUserId,
-          'receiverId': widget.receiverId,
-          'message': messageText,
-          'timestamp': FieldValue.serverTimestamp(),
-        });
-      });
-    } catch (error) {
-      if (mounted) {
-        _messageController.text = messageText;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not send message. Please try again.')),
-        );
-      }
+      final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (picked == null || !mounted) return;
+      setState(() => _isSending = true);
+      final bytes = await picked.readAsBytes();
+      final imageUrl = await CloudinaryService.uploadImage(bytes, filenamePrefix: 'chat_${currentUser.uid}');
+      await _persistMessage(
+        senderId: currentUser.uid,
+        senderName: currentUser.displayName,
+        text: '📷 Photo',
+        imageUrl: imageUrl,
+      );
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not upload or send the photo. Please try again.')));
+    } finally {
+      if (mounted) setState(() => _isSending = false);
     }
+  }
+
+  Future<void> _persistMessage({
+    required String senderId,
+    required String senderName,
+    required String text,
+    String imageUrl = '',
+  }) async {
+    final roomId = _chatRoomId(senderId, widget.receiverId);
+    final participants = [senderId, widget.receiverId]..sort((a, b) => b.compareTo(a));
+    final roomRef = _firestore.collection('chat_rooms').doc(roomId);
+    final messageRef = roomRef.collection('messages').doc();
+    final lastMessage = imageUrl.isEmpty ? text : '📷 Photo';
+
+    await _firestore.runTransaction((transaction) async {
+      final room = await transaction.get(roomRef);
+      final roomUpdate = {
+        'lastMessage': lastMessage,
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'lastSenderId': senderId,
+      };
+      if (room.exists) {
+        transaction.update(roomRef, roomUpdate);
+      } else {
+        transaction.set(roomRef, {
+          ...roomUpdate,
+          'participants': participants,
+          'participantNames': {
+            senderId: senderName,
+            widget.receiverId: widget.receiverName,
+          },
+        });
+      }
+      transaction.set(messageRef, {
+        'senderId': senderId,
+        'receiverId': widget.receiverId,
+        'message': text,
+        'imageUrl': imageUrl,
+        'type': imageUrl.isEmpty ? 'text' : 'image',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    });
   }
 
   @override
@@ -93,30 +126,29 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = Provider.of<AuthProvider>(context).currentUser?.uid ?? '';
-    final chatRoomId = getChatRoomId(currentUserId, widget.receiverId);
+    final currentUser = context.watch<AuthProvider>().currentUser;
+    final currentUserId = currentUser?.uid ?? '';
+    final roomId = _chatRoomId(currentUserId, widget.receiverId);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: Text(
-          widget.receiverName,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
-        ),
         iconTheme: const IconThemeData(color: Colors.white),
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            PostAuthorAvatar(uid: widget.receiverId, displayName: widget.receiverName, radius: 17),
+            const SizedBox(width: 10),
+            Expanded(child: Text(widget.receiverName, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 16))),
+          ],
+        ),
       ),
       body: Column(
         children: [
-          // ส่วนแสดงรายการข้อความแบบเรียลไทม์
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _firestore
-                  .collection('chat_rooms')
-                  .doc(chatRoomId)
-                  .collection('messages')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: _firestore.collection('chat_rooms').doc(roomId).collection('messages').orderBy('timestamp', descending: true).snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(
@@ -127,77 +159,37 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                     ),
                   );
                 }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: AppColors.goldPrimary));
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No messages yet. Say hello!',
-                      style: TextStyle(color: AppColors.textMuted),
-                    ),
-                  );
-                }
-
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.goldPrimary));
                 final docs = snapshot.data!.docs;
+                if (docs.isEmpty) return const Center(child: Text('No messages yet. Say hello!', style: TextStyle(color: AppColors.textMuted)));
 
                 return ListView.builder(
                   reverse: true,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
+                    final data = docs[index].data();
                     final message = MessageModel.fromMap(data, docs[index].id);
                     final isMe = message.senderId == currentUserId;
-
-                    return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isMe ? AppColors.goldPrimary : AppColors.cardBg,
-                          borderRadius: BorderRadius.circular(12),
-                          border: isMe ? null : Border.all(color: AppColors.border),
-                        ),
-                        child: Text(
-                          message.message,
-                          style: TextStyle(
-                            color: isMe ? Colors.black : Colors.white,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
+                    return ChatMessageBubble(
+                      senderId: message.senderId,
+                      senderName: isMe ? '' : widget.receiverName,
+                      isMe: isMe,
+                      message: message.message,
+                      imageUrl: message.imageUrl,
+                      timestamp: message.timestamp,
                     );
                   },
                 );
               },
             ),
           ),
-
-          // ส่วนพิมพ์ข้อความด้านล่าง
-          Container(
-            padding: const EdgeInsets.all(12),
-            color: AppColors.cardBg,
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
-                      hintText: 'Type a message...',
-                      hintStyle: TextStyle(color: AppColors.textMuted),
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.send, color: AppColors.goldPrimary),
-                  onPressed: _sendMessage,
-                ),
-              ],
-            ),
+          ChatInputBar(
+            controller: _messageController,
+            hintText: 'Message…',
+            isBusy: _isSending,
+            onSend: _sendMessage,
+            onPickImage: _pickAndSendImage,
           ),
         ],
       ),

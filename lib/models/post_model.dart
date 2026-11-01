@@ -5,6 +5,7 @@ class PostModel {
   final String uid;
   final String username;
   final String displayName;
+  final String userPhotoUrl;
   final String content;
   final String imageUrl;
   final Timestamp createdAt;
@@ -15,6 +16,7 @@ class PostModel {
     required this.uid,
     required this.username,
     required this.displayName,
+    this.userPhotoUrl = '',
     required this.content,
     required this.imageUrl,
     required this.createdAt,
@@ -27,6 +29,7 @@ class PostModel {
       uid: map['uid'] ?? '',
       username: map['username'] ?? '',
       displayName: map['displayName'] ?? '',
+      userPhotoUrl: (map['userPhotoUrl'] ?? '').toString(),
       content: map['content'] ?? '',
       imageUrl: map['imageUrl'] ?? '',
       createdAt: map['createdAt'] ?? Timestamp.now(),
@@ -39,6 +42,7 @@ class PostModel {
       'uid': uid,
       'username': username,
       'displayName': displayName,
+      'userPhotoUrl': userPhotoUrl,
       'content': content,
       'imageUrl': imageUrl,
       'createdAt': createdAt,

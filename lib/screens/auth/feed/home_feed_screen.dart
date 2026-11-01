@@ -7,6 +7,7 @@ import '/providers/auth_provider.dart';
 import '/core/theme/app_theme.dart';
 import '/models/post_model.dart';
 import '/models/comment_model.dart';
+import '/widgets/post_author_avatar.dart';
 
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({super.key});
@@ -559,13 +560,11 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                     // ส่วนหัว
                     Row(
                       children: [
-                        CircleAvatar(
-                          backgroundColor: AppColors.goldPrimary,
+                        PostAuthorAvatar(
+                          uid: post.uid,
+                          displayName: post.displayName,
+                          photoUrl: post.userPhotoUrl,
                           radius: 18,
-                          child: Text(
-                            post.displayName.isNotEmpty ? post.displayName[0].toUpperCase() : 'U',
-                            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(child: Column(

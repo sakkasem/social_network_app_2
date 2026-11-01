@@ -67,12 +67,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
 
       // บันทึกข้อมูลโพสต์ลง Firestore (รวม imageUrl)
+      final profileSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final profile = profileSnapshot.data();
+      final latestDisplayName = (profile?['displayName'] ?? user.displayName).toString();
+      final latestUsername = (profile?['username'] ?? user.username).toString();
+      final latestPhotoUrl = (profile?['photoUrl'] ?? user.photoUrl ?? '').toString();
+
       await FirebaseFirestore.instance.collection('posts').add({
         'uid': user.uid,
-        'displayName': user.displayName,
-        'username': user.username,
+        'displayName': latestDisplayName,
+        'username': latestUsername,
         'content': _contentController.text.trim(),
         'imageUrl': imageUrl,
+        'userPhotoUrl': latestPhotoUrl,
         'likes': [],
         'createdAt': Timestamp.now(),
       });

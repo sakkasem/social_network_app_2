@@ -5,6 +5,7 @@ class MessageModel {
   final String senderId;
   final String receiverId;
   final String message;
+  final String imageUrl;
   final Timestamp timestamp;
 
   MessageModel({
@@ -12,6 +13,7 @@ class MessageModel {
     required this.senderId,
     required this.receiverId,
     required this.message,
+    this.imageUrl = '',
     required this.timestamp,
   });
 
@@ -21,6 +23,7 @@ class MessageModel {
       senderId: map['senderId'] ?? '',
       receiverId: map['receiverId'] ?? '',
       message: map['message'] ?? '',
+      imageUrl: (map['imageUrl'] ?? '').toString(),
       timestamp: map['timestamp'] ?? Timestamp.now(),
     );
   }
@@ -30,6 +33,7 @@ class MessageModel {
       'senderId': senderId,
       'receiverId': receiverId,
       'message': message,
+      'imageUrl': imageUrl,
       'timestamp': timestamp,
     };
   }
