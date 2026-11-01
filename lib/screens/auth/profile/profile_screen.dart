@@ -9,6 +9,7 @@ import '/core/theme/app_theme.dart';
 import '/models/user_model.dart';
 import '/providers/auth_provider.dart';
 import '/screens/auth/login_screen.dart';
+import '/screens/auth/profile/profile_layout.dart';
 import '/services/cloudinary_service.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -26,117 +27,82 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
+  void _showSettings(BuildContext context, UserModel user) {
+    final auth = context.read<AuthProvider>();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.cardBg,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(title: Text('Account settings', style: TextStyle(color: AppColors.goldPrimary, fontWeight: FontWeight.bold))),
+            ListTile(leading: const Icon(Icons.email_outlined, color: AppColors.goldPrimary), title: Text(user.email, style: const TextStyle(color: Colors.white))),
+            ListTile(leading: const Icon(Icons.fingerprint, color: AppColors.goldPrimary), title: Text(user.uid, style: const TextStyle(color: AppColors.textMuted))),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              title: const Text('Log Out', style: TextStyle(color: Colors.redAccent)),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                await auth.signOut();
+                if (context.mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    (_) => false,
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.currentUser;
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
+    if (user == null) {
+      return const Scaffold(
         backgroundColor: AppColors.background,
-        title: const Text('PROFILE', style: TextStyle(color: AppColors.goldPrimary, fontSize: 16)),
-        actions: [
-          if (user != null)
-            IconButton(
-              tooltip: 'Edit profile',
-              icon: const Icon(Icons.edit, color: AppColors.goldPrimary),
-              onPressed: () => _editProfile(context, user),
-            ),
-        ],
-      ),
-      body: user == null
-          ? const Center(child: Text('Please sign in.', style: TextStyle(color: Colors.white)))
-          : SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 20),
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: AppColors.goldPrimary,
-                      backgroundImage: (user.photoUrl?.isNotEmpty ?? false)
-                          ? NetworkImage(user.photoUrl!)
-                          : null,
-                      child: user.photoUrl?.isNotEmpty == true
-                          ? null
-                          : Text(
-                              user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : 'U',
-                              style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.black),
-                            ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(user.displayName, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text('@${user.username}', style: const TextStyle(color: AppColors.textMuted)),
-                    if (user.bio.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text(user.bio, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
-                    ],
-                    const SizedBox(height: 32),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.cardBg,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        children: [
-                          _infoTile(Icons.email_outlined, 'Email', user.email),
-                          const Divider(color: AppColors.border, height: 24),
-                          _infoTile(Icons.fingerprint, 'User ID', user.uid),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                          side: const BorderSide(color: Colors.redAccent),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                        ),
-                        onPressed: () async {
-                          await auth.signOut();
-                          if (context.mounted) {
-                            Navigator.pushAndRemoveUntil(
-                              context,
-                              MaterialPageRoute(builder: (_) => const LoginScreen()),
-                              (_) => false,
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.logout),
-                        label: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-    );
-  }
+        body: Center(child: Text('Please sign in.', style: TextStyle(color: Colors.white))),
+      );
+    }
 
-  static Widget _infoTile(IconData icon, String title, String value) => Row(
+    return InstagramProfileLayout(
+      userId: user.uid,
+      displayName: user.displayName,
+      username: user.username,
+      photoUrl: user.photoUrl ?? '',
+      bio: user.bio,
+      isOwnProfile: true,
+      actionButtons: Row(
         children: [
-          Icon(icon, color: AppColors.goldPrimary, size: 20),
-          const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                const SizedBox(height: 2),
-                Text(value, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14)),
-              ],
+            child: OutlinedButton.icon(
+              onPressed: () => _editProfile(context, user),
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('Edit profile'),
+              style: OutlinedButton.styleFrom(foregroundColor: AppColors.goldPrimary, side: const BorderSide(color: AppColors.goldPrimary)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _showSettings(context, user),
+              icon: const Icon(Icons.settings_outlined, size: 18),
+              label: const Text('Settings'),
+              style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: AppColors.border)),
             ),
           ),
         ],
-      );
+      ),
+    );
+  }
 }
 
 class _EditProfileDialog extends StatefulWidget {

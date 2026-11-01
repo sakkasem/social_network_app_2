@@ -21,7 +21,7 @@ class GroupChatScreen extends StatefulWidget {
 class _GroupChatScreenState extends State<GroupChatScreen> {
   final TextEditingController _messageController = TextEditingController();
 
-  void _sendMessage() async {
+  Future<void> _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
 
     final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
@@ -30,16 +30,31 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final text = _messageController.text.trim();
     _messageController.clear();
 
-    await FirebaseFirestore.instance
-        .collection('groups')
-        .doc(widget.groupId)
-        .collection('messages')
-        .add({
-      'senderId': user.uid,
-      'senderName': user.displayName,
-      'message': text,
-      'timestamp': Timestamp.now(),
-    });
+    try {
+      await FirebaseFirestore.instance
+          .collection('groups')
+          .doc(widget.groupId)
+          .collection('messages')
+          .add({
+        'senderId': user.uid,
+        'senderName': user.displayName,
+        'message': text,
+        'timestamp': Timestamp.now(),
+      });
+    } catch (_) {
+      if (mounted) {
+        _messageController.text = text;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send message. Please try again.')),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
   }
 
   @override

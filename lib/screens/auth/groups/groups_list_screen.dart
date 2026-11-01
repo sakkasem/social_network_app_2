@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '/core/theme/app_theme.dart';
 import '/models/group_model.dart';
 import '/providers/auth_provider.dart';
-import 'group_chat_screen.dart';
+import 'group_detail_screen.dart';
 import 'group_management_screen.dart';
 
 class GroupsListScreen extends StatefulWidget {
@@ -65,6 +65,7 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
                 await FirebaseFirestore.instance.collection('groups').add({
                   'name': nameController.text.trim(),
                   'description': descController.text.trim(),
+                  'coverPhotoUrl': '',
                   'createdBy': user.uid,
                   'members': [user.uid], // ผู้สร้างเข้าร่วมโดยอัตโนมัติ
                   'createdAt': Timestamp.now(),
@@ -196,23 +197,15 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
                             ),
                           ),
                         ),
-                  onTap: () {
-                    if (isMember) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => GroupChatScreen(
-                            groupId: group.groupId,
-                            groupName: group.name,
-                          ),
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please join the group first to chat.')),
-                      );
-                    }
-                  },
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => GroupDetailScreen(
+                        groupId: group.groupId,
+                        groupName: group.name,
+                      ),
+                    ),
+                  ),
                 ),
               );
             },

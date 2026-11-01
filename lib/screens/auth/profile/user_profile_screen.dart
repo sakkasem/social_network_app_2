@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '/core/theme/app_theme.dart';
 import '/providers/auth_provider.dart';
 import '/screens/auth/chat/chat_room_screen.dart';
+import '/screens/auth/profile/profile_layout.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -26,6 +27,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   bool _incomingRequest = false;
   bool _blockedByMe = false;
   bool _blockedMe = false;
+  int _profileRefreshKey = 0;
   String? _loadError;
 
   String? get _currentUid =>
@@ -95,6 +97,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     try {
       await action();
       await _loadProfileAndRelationships();
+      if (mounted) setState(() => _profileRefreshKey++);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -254,99 +257,111 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final name = (profile?['displayName'] ?? 'User').toString();
     final username = (profile?['username'] ?? '').toString();
     final photoUrl = (profile?['photoUrl'] ?? '').toString();
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
+    if (_isLoading) {
+      return const Scaffold(
         backgroundColor: AppColors.background,
-        title: const Text('PROFILE', style: TextStyle(color: AppColors.goldPrimary, fontSize: 16)),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.goldPrimary))
-          : _loadError != null
-              ? Center(
-                  child: TextButton.icon(
-                    onPressed: _loadProfileAndRelationships,
-                    icon: const Icon(Icons.refresh),
-                    label: Text(_loadError!),
-                  ),
-                )
-              : _blockedMe
-                  ? const Center(child: Text('This profile is unavailable.', style: TextStyle(color: AppColors.textMuted)))
-                  : SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 52,
-                        backgroundColor: AppColors.goldPrimary,
-                        backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                        child: photoUrl.isEmpty
-                            ? Text(name.isEmpty ? 'U' : name[0].toUpperCase(),
-                                style: const TextStyle(fontSize: 38, color: Colors.black, fontWeight: FontWeight.bold))
-                            : null,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text('@$username', style: const TextStyle(color: AppColors.textMuted)),
-                      if ((profile?['bio'] ?? '').toString().isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Text(profile!['bio'].toString(), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
-                      ],
-                      const SizedBox(height: 28),
-                      if (currentUid != widget.userId) ...[
-                        if (!_blockedByMe) ...[
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: _isBusy ? null : () => _runAction(_toggleFollow),
-                                child: Text(_isFollowing ? 'Following' : 'Follow'),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildFriendButton()),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: TextButton.icon(
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ChatRoomScreen(receiverId: widget.userId, receiverName: name),
-                              ),
-                            ),
-                            icon: const Icon(Icons.chat_bubble_outline),
-                            label: const Text('Message'),
-                          ),
-                        ),
-                        ],
-                        const SizedBox(height: 12),
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          spacing: 8,
-                          children: [
-                            TextButton.icon(
-                              onPressed: _isBusy ? null : () => _runAction(_toggleBlock),
-                              icon: Icon(_blockedByMe ? Icons.lock_open : Icons.block, color: Colors.redAccent),
-                              label: Text(_blockedByMe ? 'Unblock user' : 'Block user', style: const TextStyle(color: Colors.redAccent)),
-                            ),
-                            TextButton.icon(
-                              onPressed: _isBusy ? null : _reportUser,
-                              icon: const Icon(Icons.flag_outlined, color: AppColors.textMuted),
-                              label: const Text('Report', style: TextStyle(color: AppColors.textMuted)),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+        body: Center(child: CircularProgressIndicator(color: AppColors.goldPrimary)),
+      );
+    }
+    if (_loadError != null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: TextButton.icon(
+            onPressed: _loadProfileAndRelationships,
+            icon: const Icon(Icons.refresh, color: AppColors.goldPrimary),
+            label: Text(_loadError!, style: const TextStyle(color: AppColors.goldPrimary)),
+          ),
+        ),
+      );
+    }
+    if (_blockedMe) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(child: Text('This profile is unavailable.', style: TextStyle(color: AppColors.textMuted))),
+      );
+    }
+
+    final isOwnProfile = currentUid == widget.userId;
+    return InstagramProfileLayout(
+      key: ValueKey('${widget.userId}-$_profileRefreshKey'),
+      userId: widget.userId,
+      displayName: name,
+      username: username,
+      photoUrl: photoUrl,
+      bio: (profile?['bio'] ?? '').toString(),
+      isOwnProfile: isOwnProfile,
+      actionButtons: isOwnProfile ? const SizedBox.shrink() : _buildProfileActions(name),
     );
   }
+
+  Widget _buildProfileActions(String name) {
+    if (_blockedByMe) {
+      return Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _isBusy ? null : () => _runAction(_toggleBlock),
+              icon: const Icon(Icons.lock_open_outlined),
+              label: const Text('Unblock'),
+              style: OutlinedButton.styleFrom(foregroundColor: AppColors.goldPrimary, side: const BorderSide(color: AppColors.goldPrimary)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _profileMoreMenu(),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton(
+                onPressed: _isBusy ? null : () => _runAction(_toggleFollow),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _isFollowing ? AppColors.cardBg : AppColors.goldPrimary,
+                  foregroundColor: _isFollowing ? Colors.white : Colors.black,
+                  side: _isFollowing ? const BorderSide(color: AppColors.border) : null,
+                ),
+                child: Text(_isFollowing ? 'Following' : 'Follow'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ChatRoomScreen(receiverId: widget.userId, receiverName: name)),
+                ),
+                icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                label: const Text('Message'),
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.goldPrimary, side: const BorderSide(color: AppColors.goldPrimary)),
+              ),
+            ),
+            const SizedBox(width: 4),
+            _profileMoreMenu(),
+          ],
+        ),
+        const SizedBox(height: 6),
+        SizedBox(width: double.infinity, child: _buildFriendButton()),
+      ],
+    );
+  }
+
+  Widget _profileMoreMenu() => PopupMenuButton<String>(
+        icon: const Icon(Icons.more_horiz, color: AppColors.textMuted),
+        color: AppColors.cardBg,
+        onSelected: (value) {
+          if (value == 'block') _runAction(_toggleBlock);
+          if (value == 'report') _reportUser();
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem(value: 'block', child: Text(_blockedByMe ? 'Unblock user' : 'Block user')),
+          const PopupMenuItem(value: 'report', child: Text('Report user')),
+        ],
+      );
 
   Widget _buildFriendButton() {
     if (_areFriends) {
