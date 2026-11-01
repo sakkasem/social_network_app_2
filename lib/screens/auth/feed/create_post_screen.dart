@@ -1,15 +1,11 @@
-import 'dart:io';
-import 'dart:convert';
-
-import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '/core/theme/app_theme.dart';
 import '/providers/auth_provider.dart';
+import '/services/cloudinary_service.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
@@ -34,12 +30,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
     if (pickedFile != null) {
       final bytes = await pickedFile.readAsBytes();
-      setState(() {
-        _imageBytes = bytes;
-      });
+      if (mounted) {
+        setState(() {
+          _imageBytes = bytes;
+        });
+      }
     }
   } catch (e) {
     debugPrint('=== ERROR PICKING IMAGE: $e ===');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เลือกรูปไม่สำเร็จ กรุณาลองอีกครั้ง')),
+      );
+    }
   }
 }
 
@@ -47,14 +50,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   Future<void> _submitPost() async {
     if (_contentController.text.trim().isEmpty && _imageBytes == null) return;
     setState(() => _isLoading = true);
+    var uploadFailed = false;
     try {
       final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
-      if (user == null) return;
+      if (user == null) throw Exception('กรุณาเข้าสู่ระบบก่อนสร้างโพสต์');
       String imageUrl = '';
 
       // ถ้ามีการเลือกรูป ให้ส่งไป Cloudinary
       if (_imageBytes != null) {
-        imageUrl = await _uploadToCloudinary(_imageBytes!);
+        try {
+          imageUrl = await CloudinaryService.uploadImage(_imageBytes!, filenamePrefix: 'post');
+        } catch (_) {
+          uploadFailed = true;
+          rethrow;
+        }
       }
 
       // บันทึกข้อมูลโพสต์ลง Firestore (รวม imageUrl)
@@ -71,38 +80,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       if (mounted) Navigator.pop(context);
     } catch (e) {
       debugPrint('Error creating post: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(uploadFailed
+                ? 'อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'
+                : 'สร้างโพสต์ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่'),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-    // ฟังก์ชันอัปโหลดรูปไป Cloudinary (ฟรี ไม่ต้องใช้บัตร)
-  Future<String> _uploadToCloudinary(Uint8List imageBytes) async {
-    // ใส่ Cloud Name และ Upload Preset ที่สร้างไว้จากเว็บ Cloudinary ของคุณ
-    const cloudName = 'dn2ukurwr'; 
-    const uploadPreset = 'sigma888_preset';
-
-    final url = Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload');
-    
-    final request = http.MultipartRequest('POST', url)
-      ..fields['upload_preset'] = uploadPreset
-      ..files.add(http.MultipartFile.fromBytes(
-        'file',
-        imageBytes,
-        filename: 'post_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      ));
-
-    final response = await request.send();
-    
-    if (response.statusCode == 200) {
-      final responseData = await response.stream.bytesToString();
-      final jsonMap = json.decode(responseData);
-      return jsonMap['secure_url']; // ได้ลิงก์รูปภาพจริงกลับมาใช้งาน!
-    } else {
-      throw Exception('Failed to upload image to Cloudinary');
-    }
+  @override
+  void dispose() {
+    _contentController.dispose();
+    super.dispose();
   }
 
+    // ฟังก์ชันอัปโหลดรูปไป Cloudinary (ฟรี ไม่ต้องใช้บัตร)
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import '../../core/theme/app_theme.dart';
 import 'register_screen.dart';
 // นำเข้าเพิ่มเติมด้านบนของไฟล์
@@ -16,6 +17,45 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendPasswordReset() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากรอกอีเมลก่อนกดลืมรหัสผ่าน')),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ส่งลิงก์รีเซ็ตรหัสผ่านไปยังอีเมลแล้ว')),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        final message = e.code == 'user-not-found'
+            ? 'ไม่พบบัญชีที่ใช้อีเมลนี้'
+            : 'ส่งอีเมลรีเซ็ตรหัสผ่านไม่สำเร็จ กรุณาลองอีกครั้ง';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองอีกครั้ง')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: _sendPasswordReset,
                   child: const Text('Forgot password?', style: TextStyle(color: AppColors.goldPrimary, fontSize: 13)),
                 ),
               ),

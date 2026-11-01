@@ -35,24 +35,60 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
 
-    final currentUserId = Provider.of<AuthProvider>(context, listen: false).currentUser?.uid;
-    if (currentUserId == null) return;
+    final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
+    if (currentUser == null || currentUser.uid == widget.receiverId) return;
+    final currentUserId = currentUser.uid;
 
     final messageText = _messageController.text.trim();
     _messageController.clear();
 
     final chatRoomId = getChatRoomId(currentUserId, widget.receiverId);
 
-    await _firestore
-        .collection('chat_rooms')
-        .doc(chatRoomId)
-        .collection('messages')
-        .add({
-      'senderId': currentUserId,
-      'receiverId': widget.receiverId,
-      'message': messageText,
-      'timestamp': Timestamp.now(),
-    });
+    final participants = [currentUserId, widget.receiverId]
+      ..sort((a, b) => b.compareTo(a));
+    final roomRef = _firestore.collection('chat_rooms').doc(chatRoomId);
+    final messageRef = roomRef.collection('messages').doc();
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final room = await transaction.get(roomRef);
+        final latestMessage = {
+          'lastMessage': messageText,
+          'lastMessageAt': FieldValue.serverTimestamp(),
+          'lastSenderId': currentUserId,
+        };
+        if (room.exists) {
+          transaction.update(roomRef, latestMessage);
+        } else {
+          transaction.set(roomRef, {
+            ...latestMessage,
+            'participants': participants,
+            'participantNames': {
+              currentUserId: currentUser.displayName,
+              widget.receiverId: widget.receiverName,
+            },
+          });
+        }
+        transaction.set(messageRef, {
+          'senderId': currentUserId,
+          'receiverId': widget.receiverId,
+          'message': messageText,
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (error) {
+      if (mounted) {
+        _messageController.text = messageText;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send message. Please try again.')),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -82,6 +118,15 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                   .orderBy('timestamp', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: TextButton.icon(
+                      onPressed: () => setState(() {}),
+                      icon: const Icon(Icons.refresh, color: AppColors.goldPrimary),
+                      label: const Text('Could not load messages. Retry', style: TextStyle(color: AppColors.goldPrimary)),
+                    ),
+                  );
+                }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator(color: AppColors.goldPrimary));
                 }

@@ -4,6 +4,7 @@ class UserModel {
   final String username;
   final String displayName;
   final String? photoUrl;
+  final String bio;
 
   UserModel({
     required this.uid,
@@ -11,6 +12,7 @@ class UserModel {
     required this.username,
     required this.displayName,
     this.photoUrl,
+    this.bio = '',
   });
 
   // แปลงข้อมูลจาก Map (เช่น ดึงมาจาก Firestore/Database) เป็น UserModel
@@ -21,6 +23,7 @@ class UserModel {
       username: map['username'] ?? '',
       displayName: map['displayName'] ?? '',
       photoUrl: map['photoUrl'],
+      bio: map['bio'] ?? '',
     );
   }
 
@@ -32,6 +35,7 @@ class UserModel {
       'username': username,
       'displayName': displayName,
       'photoUrl': photoUrl,
+      'bio': bio,
     };
   }
 }

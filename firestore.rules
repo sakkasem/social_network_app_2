@@ -1,0 +1,268 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsPost(postId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/posts/$(postId)).data.uid == request.auth.uid;
+    }
+
+    function isLikeOnlyChange() {
+      return signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
+        && request.resource.data.likes is list
+        && resource.data.likes is list
+        && (
+          (request.resource.data.likes.size() == resource.data.likes.size() + 1
+            && request.resource.data.likes.hasAll(resource.data.likes)
+            && request.resource.data.likes.hasAny([request.auth.uid]))
+          ||
+          (resource.data.likes.size() == request.resource.data.likes.size() + 1
+            && resource.data.likes.hasAll(request.resource.data.likes)
+            && resource.data.likes.hasAny([request.auth.uid])
+            && !request.resource.data.likes.hasAny([request.auth.uid]))
+        );
+    }
+
+    match /posts/{postId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.content is string
+        && request.resource.data.content.size() <= 1000
+        && request.resource.data.likes is list;
+      allow update: if signedIn() && (
+        (resource.data.uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content'])
+          && request.resource.data.content is string
+          && request.resource.data.content.size() <= 1000)
+        || isLikeOnlyChange()
+      );
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+
+      match /comments/{commentId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && exists(/databases/$(database)/documents/posts/$(postId))
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 1000;
+        allow update: if signedIn()
+          && resource.data.uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text'])
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 1000;
+        allow delete: if signedIn()
+          && (resource.data.uid == request.auth.uid || ownsPost(postId));
+      }
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'bio', 'photoUrl'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 60
+        && request.resource.data.bio is string
+        && request.resource.data.bio.size() <= 160
+        && request.resource.data.photoUrl is string
+        && request.resource.data.photoUrl.size() <= 2048;
+      allow delete: if false;
+
+      match /notifications/{notificationId} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn()
+          && request.auth.uid == request.resource.data.actorUid
+          && request.auth.uid != userId
+          && request.resource.data.postId is string
+          && request.resource.data.type in ['like', 'comment']
+          && get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.uid == userId
+          && (
+            (request.resource.data.type == 'like'
+              && get(/databases/$(database)/documents/posts/$(request.resource.data.postId)).data.likes.hasAny([request.auth.uid]))
+            ||
+            (request.resource.data.type == 'comment'
+              && request.resource.data.sourceId is string
+              && get(/databases/$(database)/documents/posts/$(request.resource.data.postId)/comments/$(request.resource.data.sourceId)).data.uid == request.auth.uid)
+          );
+        allow update: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+          && request.resource.data.read is bool;
+        allow delete: if signedIn() && request.auth.uid == userId;
+      }
+
+      match /following/{targetUid} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && targetUid != userId
+          && exists(/databases/$(database)/documents/users/$(targetUid))
+          && request.resource.data.targetUid == targetUid;
+        allow delete: if signedIn() && request.auth.uid == userId;
+        allow update: if false;
+      }
+
+      match /friendRequests/{senderUid} {
+        allow read: if signedIn()
+          && (request.auth.uid == userId || request.auth.uid == senderUid);
+        allow create: if signedIn()
+          && request.auth.uid == senderUid
+          && senderUid != userId
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && request.resource.data.fromUid == senderUid
+          && request.resource.data.toUid == userId;
+        allow delete: if signedIn()
+          && (request.auth.uid == userId || request.auth.uid == senderUid);
+        allow update: if false;
+      }
+
+      match /blocked/{targetUid} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && targetUid != userId
+          && request.resource.data.blockerUid == userId
+          && request.resource.data.blockedUid == targetUid;
+        allow delete: if signedIn()
+          && request.auth.uid == userId
+          && resource.data.blockerUid == userId
+          && resource.data.blockedUid == targetUid;
+        allow update: if false;
+      }
+
+      match /blockedBy/{blockerUid} {
+        allow read: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn()
+          && request.auth.uid == blockerUid
+          && blockerUid != userId
+          && request.resource.data.blockerUid == blockerUid
+          && request.resource.data.blockedUid == userId;
+        allow delete: if signedIn()
+          && request.auth.uid == blockerUid
+          && resource.data.blockerUid == blockerUid
+          && resource.data.blockedUid == userId;
+        allow update: if false;
+      }
+    }
+
+    match /reports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.targetType in ['user', 'post']
+        && request.resource.data.targetId is string
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() > 0
+        && request.resource.data.reason.size() <= 500
+        && request.resource.data.status == 'open'
+        && ((request.resource.data.targetType == 'user'
+            && request.resource.data.targetId != request.auth.uid
+            && exists(/databases/$(database)/documents/users/$(request.resource.data.targetId)))
+          || (request.resource.data.targetType == 'post'
+            && exists(/databases/$(database)/documents/posts/$(request.resource.data.targetId))));
+      allow read, update, delete: if false;
+    }
+
+    match /friendships/{friendshipId} {
+      allow get: if signedIn()
+        && (resource == null || resource.data.participants.hasAny([request.auth.uid]));
+      allow list: if signedIn()
+        && resource.data.participants.hasAny([request.auth.uid]);
+      allow create: if signedIn()
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && request.resource.data.participants[0] != request.resource.data.participants[1]
+        && request.resource.data.participants.hasAny([request.auth.uid])
+        && request.resource.data.acceptedByUid == request.auth.uid
+        && friendshipId == request.resource.data.participants[0] + '_' + request.resource.data.participants[1]
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid)/friendRequests/$(request.resource.data.participants[0] == request.auth.uid ? request.resource.data.participants[1] : request.resource.data.participants[0]));
+      allow delete: if signedIn()
+        && resource.data.participants.hasAny([request.auth.uid]);
+      allow update: if false;
+    }
+
+    match /chat_rooms/{roomId} {
+      allow get: if signedIn()
+        && (resource == null || resource.data.participants.hasAny([request.auth.uid]));
+      allow list: if signedIn()
+        && resource.data.participants.hasAny([request.auth.uid]);
+      allow create: if signedIn()
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && request.resource.data.participants[0] != request.resource.data.participants[1]
+        && request.resource.data.participants.hasAny([request.auth.uid])
+        && roomId == request.resource.data.participants[0] + '_' + request.resource.data.participants[1]
+        && request.resource.data.lastSenderId == request.auth.uid
+        && request.resource.data.lastMessage is string
+        && request.resource.data.lastMessageAt is timestamp;
+      allow update: if signedIn()
+        && resource.data.participants.hasAny([request.auth.uid])
+        && request.resource.data.participants == resource.data.participants
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastMessage', 'lastMessageAt', 'lastSenderId'])
+        && request.resource.data.lastSenderId == request.auth.uid
+        && request.resource.data.lastMessage is string
+        && request.resource.data.lastMessageAt is timestamp;
+      allow delete: if false;
+    }
+
+    match /groups/{groupId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.members is list
+        && request.resource.data.members.size() == 1
+        && request.resource.data.members.hasAny([request.auth.uid]);
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+        && request.resource.data.members is list
+        && resource.data.members is list
+        && (
+          (request.resource.data.members.size() == resource.data.members.size() + 1
+            && request.resource.data.members.hasAll(resource.data.members)
+            && !resource.data.members.hasAny([request.auth.uid])
+            && request.resource.data.members.hasAny([request.auth.uid]))
+          ||
+          (resource.data.members.size() == request.resource.data.members.size() + 1
+            && resource.data.members.hasAll(request.resource.data.members)
+            && (
+              (resource.data.members.hasAny([request.auth.uid])
+                && !request.resource.data.members.hasAny([request.auth.uid]))
+              || (resource.data.createdBy == request.auth.uid
+                && request.resource.data.members.hasAny([request.auth.uid]))
+            ))
+        );
+      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+      match /messages/{messageId} {
+        allow read: if signedIn()
+          && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+        allow create: if signedIn()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.message is string
+          && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+        allow update, delete: if false;
+      }
+    }
+
+    match /chat_rooms/{roomId}/messages/{messageId} {
+      allow read: if signedIn()
+        && get(/databases/$(database)/documents/chat_rooms/$(roomId)).data.participants.hasAny([request.auth.uid]);
+      allow create: if signedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.receiverId is string
+        && request.resource.data.receiverId != request.auth.uid
+        && getAfter(/databases/$(database)/documents/chat_rooms/$(roomId)).data.participants.hasAll([request.auth.uid, request.resource.data.receiverId])
+        && getAfter(/databases/$(database)/documents/chat_rooms/$(roomId)).data.participants.size() == 2
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0;
+      allow update, delete: if false;
+    }
+  }
+}

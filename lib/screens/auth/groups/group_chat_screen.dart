@@ -64,6 +64,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   .orderBy('timestamp', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: TextButton.icon(
+                      onPressed: () => setState(() {}),
+                      icon: const Icon(Icons.refresh, color: AppColors.goldPrimary),
+                      label: const Text('Could not load messages. Retry', style: TextStyle(color: AppColors.goldPrimary)),
+                    ),
+                  );
+                }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator(color: AppColors.goldPrimary));
                 }

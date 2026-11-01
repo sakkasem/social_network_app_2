@@ -5,9 +5,16 @@ import '/core/theme/app_theme.dart';
 import '/models/group_model.dart';
 import '/providers/auth_provider.dart';
 import 'group_chat_screen.dart';
+import 'group_management_screen.dart';
 
-class GroupsListScreen extends StatelessWidget {
+class GroupsListScreen extends StatefulWidget {
   const GroupsListScreen({super.key});
+
+  @override
+  State<GroupsListScreen> createState() => _GroupsListScreenState();
+}
+
+class _GroupsListScreenState extends State<GroupsListScreen> {
 
   // Dialog สำหรับสร้างกลุ่มใหม่
   void _showCreateGroupDialog(BuildContext context) {
@@ -114,6 +121,15 @@ class GroupsListScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('groups').orderBy('createdAt', descending: true).snapshots(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: TextButton.icon(
+                onPressed: () => setState(() {}),
+                icon: const Icon(Icons.error_outline, color: AppColors.goldPrimary),
+                label: const Text('Could not load groups. Retry', style: TextStyle(color: AppColors.goldPrimary)),
+              ),
+            );
+          }
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator(color: AppColors.goldPrimary));
           }
@@ -156,19 +172,30 @@ class GroupsListScreen extends StatelessWidget {
                     style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                   ),
                   isThreeLine: true,
-                  trailing: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isMember ? Colors.grey[800] : AppColors.goldPrimary,
-                    ),
-                    onPressed: () => _toggleJoinGroup(group.groupId, group.members, currentUserId),
-                    child: Text(
-                      isMember ? 'Joined' : 'Join',
-                      style: TextStyle(
-                        color: isMember ? Colors.white : Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                  trailing: group.createdBy == currentUserId
+                      ? IconButton(
+                          tooltip: 'Manage members',
+                          icon: const Icon(Icons.manage_accounts, color: AppColors.goldPrimary),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => GroupManagementScreen(groupId: group.groupId, groupName: group.name),
+                            ),
+                          ),
+                        )
+                      : ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isMember ? Colors.grey[800] : AppColors.goldPrimary,
+                          ),
+                          onPressed: () => _toggleJoinGroup(group.groupId, group.members, currentUserId),
+                          child: Text(
+                            isMember ? 'Joined' : 'Join',
+                            style: TextStyle(
+                              color: isMember ? Colors.white : Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
                   onTap: () {
                     if (isMember) {
                       Navigator.push(
