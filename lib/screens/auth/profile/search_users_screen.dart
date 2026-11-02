@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '/core/theme/app_theme.dart';
 import '/providers/auth_provider.dart';
+import '/widgets/notification_badges.dart';
 import 'user_profile_screen.dart';
 
 /// SearchUsersScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
@@ -34,6 +35,43 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
     _searchController.dispose();
     super.dispose();
   }
+
+  /// รายการคำขอเป็นเพื่อนที่รออยู่ พร้อมจุดแดง กดเพื่อเปิดโปรไฟล์และตอบรับ.
+  Widget _buildFriendRequests(String uid) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance.collection('users').doc(uid).collection('friendRequests').snapshots(),
+        builder: (context, snap) {
+          final requests = snap.data?.docs ?? [];
+          if (requests.isEmpty) return const SizedBox.shrink();
+          return Container(
+            constraints: const BoxConstraints(maxHeight: 180),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
+                  child: Text('FRIEND REQUESTS', style: TextStyle(color: AppColors.goldPrimary, fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+                for (final req in requests)
+                  ListTile(
+                    dense: true,
+                    leading: const RedDot(),
+                    title: Text(
+                      (req.data()['fromName'] ?? 'User').toString(),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: const Text('wants to be your friend', style: TextStyle(color: AppColors.textMuted)),
+                    trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => UserProfileScreen(userId: req.id)),
+                    ),
+                  ),
+                const Divider(color: AppColors.border, height: 1),
+              ],
+            ),
+          );
+        },
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -68,10 +106,10 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
               ),
             ),
           ),
+          if (_query.isEmpty && currentUserId != null) _buildFriendRequests(currentUserId),
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance.collection('users').snapshots(),
-              builder: (context, snapshot) {
+              stream: FirebaseFirestore.instance.collection('users').snapshots(),              builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(
                     child: TextButton.icon(
@@ -109,10 +147,16 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
                     final doc = users[index];
                     final data = doc.data();
                     final name = (data['displayName'] ?? 'User').toString();
+                    final photoUrl = (data['photoUrl'] ?? '').toString();
+                    final hasPhoto = photoUrl.isNotEmpty;
                     return ListTile(
                       leading: CircleAvatar(
+                        key: ValueKey('$photoUrl-${doc.id}'),
                         backgroundColor: AppColors.goldPrimary,
-                        child: Text(name.isEmpty ? 'U' : name[0].toUpperCase(), style: const TextStyle(color: Colors.black)),
+                        backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
+                        child: hasPhoto
+                            ? null
+                            : Text(name.isEmpty ? 'U' : name[0].toUpperCase(), style: const TextStyle(color: Colors.black)),
                       ),
                       title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       subtitle: Text('@${data['username'] ?? ''}', style: const TextStyle(color: AppColors.textMuted)),

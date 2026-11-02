@@ -33,7 +33,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final TextEditingController _messageController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isSending = false;
-
+  String? _lastMarkedMessageId;
   /// สร้าง room id แบบคงที่จาก uid ทั้งคู่ เพื่อให้คู่สนทนาได้ห้องเดียวกัน.
   String _chatRoomId(String currentUserId, String targetUserId) =>
       currentUserId.compareTo(targetUserId) > 0
@@ -129,6 +129,18 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     });
   }
 
+  /// บันทึกเวลาอ่านล่าสุดเมื่อมีข้อความใหม่จากคู่สนทนาขณะเปิดห้องอยู่.
+  void _markReadIfNeeded(String roomId, String uid, String latestId, Object? senderId) {
+    if (uid.isEmpty || senderId == uid || _lastMarkedMessageId == latestId) return;
+    _lastMarkedMessageId = latestId;
+    _firestore
+        .collection('chat_rooms')
+        .doc(roomId)
+        .update({'readAt.$uid': FieldValue.serverTimestamp()}).catchError((_) {
+      _lastMarkedMessageId = null; // ลองใหม่เมื่อสตรีมอัปเดตครั้งถัดไป
+    });
+  }
+
   @override
   void dispose() {
     _messageController.dispose();
@@ -173,7 +185,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: AppColors.goldPrimary));
                 final docs = snapshot.data!.docs;
                 if (docs.isEmpty) return const Center(child: Text('No messages yet. Say hello!', style: TextStyle(color: AppColors.textMuted)));
-
+                _markReadIfNeeded(roomId, currentUserId, docs.first.id, docs.first.data()['senderId']);
                 return ListView.builder(
                   reverse: true,
                   padding: const EdgeInsets.symmetric(vertical: 12),

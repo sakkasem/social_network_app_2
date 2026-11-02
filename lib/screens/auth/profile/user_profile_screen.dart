@@ -195,6 +195,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         .delete();
   }
 
+  /// ขอให้ผู้ใช้ยืนยันก่อนลบเพื่อน แล้วจึงลบ friendship จริง.
+  Future<void> _confirmUnfriend() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBg,
+        title: const Text('ลบเพื่อน', style: TextStyle(color: Colors.white)),
+        content: const Text('คุณต้องการลบเพื่อนคนนี้ใช่หรือไม่?', style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('ยกเลิก')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('ยืนยันการลบ', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) await _runAction(_unfriend);
+  }
+
   /// ยุติความสัมพันธ์เพื่อนโดยลบเอกสาร friendship ที่ใช้ร่วมกัน.
   Future<void> _unfriend() async {
     final currentUid = _currentUid;
@@ -381,7 +401,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   Widget _buildFriendButton() {
     if (_areFriends) {
       return OutlinedButton(
-        onPressed: _isBusy ? null : () => _runAction(_unfriend),
+        onPressed: _isBusy ? null : _confirmUnfriend,
         child: const Text('Friends'),
       );
     }

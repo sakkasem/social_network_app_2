@@ -1,7 +1,10 @@
 /// SIGMA888: ประกอบแท็บหลักของแอปและควบคุมหน้าที่เลือกอยู่
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
+import '../providers/auth_provider.dart';
+import '../widgets/notification_badges.dart';
 import 'auth/feed/home_feed_screen.dart';
 import 'auth/feed/create_post_screen.dart';
 import 'auth/profile/profile_screen.dart';
@@ -101,8 +104,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     required IconData activeIcon,
     required String label,
   }) {
+    final uid = Provider.of<AuthProvider>(context).currentUser?.uid;
     final isSelected = _currentIndex == index;
     final color = isSelected ? AppColors.goldPrimary : AppColors.textMuted;
+    final iconWidget = Icon(isSelected ? activeIcon : icon, color: color, size: 22);
 
     return Expanded(
       child: InkWell(
@@ -113,7 +118,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(isSelected ? activeIcon : icon, color: color, size: 22),
+            if (index == 3 && uid != null)
+              StreamBuilder<int>(
+                stream: unreadChatCountStream(uid),
+                builder: (context, snap) => DotBadge(show: (snap.data ?? 0) > 0, child: iconWidget),
+              )
+            else
+              iconWidget,
             const SizedBox(height: 4),
             Text(
               label,
