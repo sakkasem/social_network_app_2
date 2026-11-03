@@ -10,6 +10,10 @@ import '/core/theme/app_theme.dart';
 import '/models/post_model.dart';
 import '/models/comment_model.dart';
 import '/widgets/post_author_avatar.dart';
+import '/widgets/network_video_player.dart';
+import '/widgets/post_engagement_bar.dart';
+import '/services/post_engagement_service.dart';
+import '/widgets/hashtag_text.dart';
 
 /// HomeFeedScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class HomeFeedScreen extends StatefulWidget {
@@ -22,7 +26,8 @@ class HomeFeedScreen extends StatefulWidget {
 /// _HomeFeedScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _HomeFeedScreenState extends State<HomeFeedScreen> {
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _blockedSubscription;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _blockedBySubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+  _blockedBySubscription;
   String? _blockListUid;
   final Set<String> _blockedUsers = {};
   Set<String> _blockedByMe = {};
@@ -63,20 +68,34 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
 
     final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-    _blockedSubscription = userRef.collection('blocked').snapshots().listen((snapshot) {
-      _blockedByMe = snapshot.docs.map((doc) => doc.id).toSet();
-      _gotBlocked = true;
-      update();
-    }, onError: (_) {
-      if (mounted) setState(() => _blockListError = 'Could not load blocked users.');
-    });
-    _blockedBySubscription = userRef.collection('blockedBy').snapshots().listen((snapshot) {
-      _blockedMe = snapshot.docs.map((doc) => doc.id).toSet();
-      _gotBlockedBy = true;
-      update();
-    }, onError: (_) {
-      if (mounted) setState(() => _blockListError = 'Could not load blocked users.');
-    });
+    _blockedSubscription = userRef
+        .collection('blocked')
+        .snapshots()
+        .listen(
+          (snapshot) {
+            _blockedByMe = snapshot.docs.map((doc) => doc.id).toSet();
+            _gotBlocked = true;
+            update();
+          },
+          onError: (_) {
+            if (mounted)
+              setState(() => _blockListError = 'Could not load blocked users.');
+          },
+        );
+    _blockedBySubscription = userRef
+        .collection('blockedBy')
+        .snapshots()
+        .listen(
+          (snapshot) {
+            _blockedMe = snapshot.docs.map((doc) => doc.id).toSet();
+            _gotBlockedBy = true;
+            update();
+          },
+          onError: (_) {
+            if (mounted)
+              setState(() => _blockListError = 'Could not load blocked users.');
+          },
+        );
   }
 
   @override
@@ -99,17 +118,27 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           maxLength: 500,
           maxLines: 3,
           style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(hintText: 'Tell us why this post should be reviewed'),
+          decoration: const InputDecoration(
+            hintText: 'Tell us why this post should be reviewed',
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, reasonController.text.trim()), child: const Text('Submit')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, reasonController.text.trim()),
+            child: const Text('Submit'),
+          ),
         ],
       ),
     );
     reasonController.dispose();
     final reporterUid = context.read<AuthProvider>().currentUser?.uid;
-    if (reason == null || reason.isEmpty || reporterUid == null || !mounted) return;
+    if (reason == null || reason.isEmpty || reporterUid == null || !mounted)
+      return;
     try {
       await FirebaseFirestore.instance.collection('reports').add({
         'reporterUid': reporterUid,
@@ -153,7 +182,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// สลับสถานะไลก์ของผู้ใช้ปัจจุบันบนโพสต์.
@@ -168,11 +199,14 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     final isRemovingLike = post.likes.contains(currentUserId);
     try {
       // Firestore เพิ่ม/ลบเฉพาะ uid นี้ โดยไม่ต้องอ่านและเขียนทับ array ทั้งชุด
-      await FirebaseFirestore.instance.collection('posts').doc(post.postId).update({
-        'likes': isRemovingLike
-            ? FieldValue.arrayRemove([currentUserId])
-            : FieldValue.arrayUnion([currentUserId]),
-      });
+      await PostEngagementService.toggleVote(
+        postRef: FirebaseFirestore.instance
+            .collection('posts')
+            .doc(post.postId),
+        userId: currentUserId,
+        currentlySelected: isRemovingLike,
+        isLike: true,
+      );
       if (!isRemovingLike) {
         try {
           await _createNotification(
@@ -188,9 +222,44 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       debugPrint('Error updating like: $e');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not update like. Please try again.')),
+          const SnackBar(
+            content: Text('Could not update like. Please try again.'),
+          ),
         );
       }
+    }
+  }
+
+  Future<void> _toggleDislike(PostModel post) async {
+    final uid = context.read<AuthProvider>().currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await PostEngagementService.toggleVote(
+        postRef: FirebaseFirestore.instance
+            .collection('posts')
+            .doc(post.postId),
+        userId: uid,
+        currentlySelected: post.dislikes.contains(uid),
+        isLike: false,
+      );
+    } catch (_) {
+      if (mounted) _showMessage('Could not update reaction. Please try again.');
+    }
+  }
+
+  Future<void> _setPostReaction(PostModel post, String? emoji) async {
+    final uid = context.read<AuthProvider>().currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await PostEngagementService.setReaction(
+        postRef: FirebaseFirestore.instance
+            .collection('posts')
+            .doc(post.postId),
+        userId: uid,
+        emoji: emoji,
+      );
+    } catch (_) {
+      if (mounted) _showMessage('Could not save reaction. Please try again.');
     }
   }
 
@@ -215,24 +284,40 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
           decoration: const InputDecoration(hintText: 'Write something...'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
     final updatedContent = controller.text.trim();
     controller.dispose();
-    if (shouldSave != true || (updatedContent.isEmpty && post.imageUrl.isEmpty) || !mounted) return;
+    if (shouldSave != true ||
+        (updatedContent.isEmpty &&
+            post.imageUrl.isEmpty &&
+            post.videoUrl.isEmpty) ||
+        !mounted)
+      return;
 
     try {
-      final postRef = FirebaseFirestore.instance.collection('posts').doc(post.postId);
+      final postRef = FirebaseFirestore.instance
+          .collection('posts')
+          .doc(post.postId);
       final latestPost = await postRef.get();
       if (!mounted) return;
       if (!latestPost.exists || latestPost.data()?['uid'] != user.uid) {
         _showMessage('You can only edit your own posts.');
         return;
       }
-      await postRef.update({'content': updatedContent});
+      await postRef.update({
+        'content': updatedContent,
+        'hashtags': HashtagText.extract(updatedContent),
+      });
       if (mounted) _showMessage('Post updated.');
     } catch (e) {
       debugPrint('Error editing post: $e');
@@ -249,16 +334,25 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.cardBg,
-        title: const Text('Delete post?', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Delete post?',
+          style: TextStyle(color: Colors.white),
+        ),
         content: const Text(
           'This will permanently delete your post and its comments.',
           style: TextStyle(color: AppColors.textMuted),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -266,7 +360,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     if (confirmed != true || !mounted) return;
 
     try {
-      final postRef = FirebaseFirestore.instance.collection('posts').doc(post.postId);
+      final postRef = FirebaseFirestore.instance
+          .collection('posts')
+          .doc(post.postId);
       final latestPost = await postRef.get();
       if (!mounted) return;
       if (!latestPost.exists || latestPost.data()?['uid'] != user.uid) {
@@ -361,14 +457,22 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                                 }
                               });
                             },
-                            icon: const Icon(Icons.refresh, color: AppColors.goldPrimary),
-                            label: const Text('Could not load comments. Retry', style: TextStyle(color: AppColors.goldPrimary)),
+                            icon: const Icon(
+                              Icons.refresh,
+                              color: AppColors.goldPrimary,
+                            ),
+                            label: const Text(
+                              'Could not load comments. Retry',
+                              style: TextStyle(color: AppColors.goldPrimary),
+                            ),
                           ),
                         );
                       }
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(
-                          child: CircularProgressIndicator(color: AppColors.goldPrimary),
+                          child: CircularProgressIndicator(
+                            color: AppColors.goldPrimary,
+                          ),
                         );
                       }
 
@@ -413,7 +517,8 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         comment.displayName,
@@ -460,27 +565,38 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.send, color: AppColors.goldPrimary),
+                        icon: const Icon(
+                          Icons.send,
+                          color: AppColors.goldPrimary,
+                        ),
                         onPressed: () async {
                           if (commentController.text.trim().isEmpty) return;
 
-                          final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
+                          final user = Provider.of<AuthProvider>(
+                            context,
+                            listen: false,
+                          ).currentUser;
                           if (user == null) return;
 
                           final text = commentController.text.trim();
                           commentController.clear();
 
                           // บันทึกลง Subcollection 'comments' ของโพสต์นั้นๆ
-                          final postRef = FirebaseFirestore.instance.collection('posts').doc(postId);
-                          final commentRef = await postRef.collection('comments').add({
-                            'uid': user.uid,
-                            'displayName': user.displayName,
-                            'text': text,
-                            'createdAt': Timestamp.now(),
-                          });
+                          final postRef = FirebaseFirestore.instance
+                              .collection('posts')
+                              .doc(postId);
+                          final commentRef = await postRef
+                              .collection('comments')
+                              .add({
+                                'uid': user.uid,
+                                'displayName': user.displayName,
+                                'text': text,
+                                'createdAt': Timestamp.now(),
+                              });
                           try {
                             final postSnapshot = await postRef.get();
-                            final ownerUid = postSnapshot.data()?['uid'] as String?;
+                            final ownerUid =
+                                postSnapshot.data()?['uid'] as String?;
                             if (postSnapshot.exists && ownerUid != null) {
                               await _createNotification(
                                 recipientUid: ownerUid,
@@ -490,7 +606,9 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                               );
                             }
                           } catch (e) {
-                            debugPrint('Could not create comment notification: $e');
+                            debugPrint(
+                              'Could not create comment notification: $e',
+                            );
                           }
                         },
                       ),
@@ -516,184 +634,267 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
         backgroundColor: AppColors.background,
         title: const Text(
           'SIGMA888 FEED',
-          style: TextStyle(color: AppColors.goldPrimary, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1),
+          style: TextStyle(
+            color: AppColors.goldPrimary,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            letterSpacing: 1,
+          ),
         ),
       ),
       body: _blockListError != null
-          ? Center(child: TextButton.icon(onPressed: () => _listenToBlockLists(currentUserId), icon: const Icon(Icons.refresh), label: Text("$_blockListError Retry")))
-          : (!_gotBlocked || !_gotBlockedBy)
-              ? const Center(child: CircularProgressIndicator(color: AppColors.goldPrimary))
-              : StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('posts').orderBy('createdAt', descending: true).snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
+          ? Center(
               child: TextButton.icon(
-                onPressed: () => setState(() {}),
-                icon: const Icon(Icons.refresh, color: AppColors.goldPrimary),
-                label: const Text('Could not load feed. Retry', style: TextStyle(color: AppColors.goldPrimary)),
+                onPressed: () => _listenToBlockLists(currentUserId),
+                icon: const Icon(Icons.refresh),
+                label: Text("$_blockListError Retry"),
               ),
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.goldPrimary));
-          }
+            )
+          : (!_gotBlocked || !_gotBlockedBy)
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.goldPrimary),
+            )
+          : StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('posts')
+                  .where('visibility', isEqualTo: 'public')
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: TextButton.icon(
+                      onPressed: () => setState(() {}),
+                      icon: const Icon(
+                        Icons.refresh,
+                        color: AppColors.goldPrimary,
+                      ),
+                      label: const Text(
+                        'Could not load feed. Retry',
+                        style: TextStyle(color: AppColors.goldPrimary),
+                      ),
+                    ),
+                  );
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.goldPrimary,
+                    ),
+                  );
+                }
 
-          final docs = (snapshot.data?.docs ?? []).where((doc) {
-            final post = PostModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-            // ซ่อนโพสต์ของคนที่เราบล็อกหรือคนที่บล็อกเรา
-            return !_blockedUsers.contains(post.uid);
-          }).toList();
+                final docs = (snapshot.data?.docs ?? []).where((doc) {
+                  final post = PostModel.fromMap(
+                    doc.data() as Map<String, dynamic>,
+                    doc.id,
+                  );
+                  // ซ่อนโพสต์ของคนที่เราบล็อกหรือคนที่บล็อกเรา
+                  return !_blockedUsers.contains(post.uid);
+                }).toList();
 
-          if (docs.isEmpty) {
-            return const Center(
-              child: Text(
-                'No posts yet. Be the first to share!',
-                style: TextStyle(color: AppColors.textMuted),
-              ),
-            );
-          }
+                if (docs.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No posts yet. Be the first to share!',
+                      style: TextStyle(color: AppColors.textMuted),
+                    ),
+                  );
+                }
 
-          return ListView.builder(
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final post = PostModel.fromMap(docs[index].data() as Map<String, dynamic>, docs[index].id);
-              final bool isLiked = post.likes.contains(signedInUid);
-
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.cardBg,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ส่วนหัว
-                    Row(
-                      children: [
-                        PostAuthorAvatar(
-                          uid: post.uid,
-                          displayName: post.displayName,
-                          photoUrl: post.userPhotoUrl,
-                          radius: 18,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              post.displayName,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                return ListView.builder(
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final post = PostModel.fromMap(
+                      docs[index].data() as Map<String, dynamic>,
+                      docs[index].id,
+                    );
+                    return Container(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ส่วนหัว
+                          Row(
+                            children: [
+                              PostAuthorAvatar(
+                                uid: post.uid,
+                                displayName: post.displayName,
+                                photoUrl: post.userPhotoUrl,
+                                radius: 18,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      post.displayName,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    Text(
+                                      '@${post.username}',
+                                      style: const TextStyle(
+                                        color: AppColors.textMuted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuButton<String>(
+                                icon: const Icon(
+                                  Icons.more_vert,
+                                  color: AppColors.textMuted,
+                                ),
+                                color: AppColors.cardBg,
+                                onSelected: (action) {
+                                  if (action == 'edit') _editPost(post);
+                                  if (action == 'delete')
+                                    _confirmDeletePost(post);
+                                  if (action == 'report') _reportPost(post);
+                                },
+                                itemBuilder: (context) =>
+                                    post.uid == currentUserId
+                                    ? const [
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: Text('Edit post'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: Text(
+                                            'Delete post',
+                                            style: TextStyle(
+                                              color: Colors.redAccent,
+                                            ),
+                                          ),
+                                        ),
+                                      ]
+                                    : const [
+                                        PopupMenuItem(
+                                          value: 'report',
+                                          child: Text('Report post'),
+                                        ),
+                                      ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          HashtagText(
+                            text: post.content,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              height: 1.4,
                             ),
-                            Text(
-                              '@${post.username}',
-                              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                          ),
+                          if (post.videoUrl.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: NetworkVideoPlayer(
+                                url: post.videoUrl,
+                                height: 220,
+                              ),
+                            ),
+                          ] else if (post.imageUrl.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(
+                                post.imageUrl,
+                                height: 200,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                // ใส่ Loading ตอนรูปกำลังโหลด
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Container(
+                                        height: 200,
+                                        color: AppColors.cardBg,
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            color: AppColors.goldPrimary,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                // จัดการกรณีโหลดรูปไม่สำเร็จ
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                      height: 200,
+                                      color: AppColors.cardBg,
+                                      child: const Center(
+                                        child: Icon(
+                                          Icons.broken_image,
+                                          color: AppColors.textMuted,
+                                          size: 40,
+                                        ),
+                                      ),
+                                    ),
+                              ),
                             ),
                           ],
-                        )),
-                        PopupMenuButton<String>(
-                            icon: const Icon(Icons.more_vert, color: AppColors.textMuted),
-                            color: AppColors.cardBg,
-                            onSelected: (action) {
-                              if (action == 'edit') _editPost(post);
-                              if (action == 'delete') _confirmDeletePost(post);
-                              if (action == 'report') _reportPost(post);
-                            },
-                            itemBuilder: (context) => post.uid == currentUserId
-                                ? const [
-                                    PopupMenuItem(value: 'edit', child: Text('Edit post')),
-                                    PopupMenuItem(value: 'delete', child: Text('Delete post', style: TextStyle(color: Colors.redAccent))),
-                                  ]
-                                : const [PopupMenuItem(value: 'report', child: Text('Report post'))],
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      post.content,
-                      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
-                    ),
-                    if (post.imageUrl.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          post.imageUrl,
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          // ใส่ Loading ตอนรูปกำลังโหลด
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              height: 200,
-                              color: AppColors.cardBg,
-                              child: const Center(
-                                child: CircularProgressIndicator(color: AppColors.goldPrimary),
-                              ),
-                            );
-                          },
-                          // จัดการกรณีโหลดรูปไม่สำเร็จ
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            height: 200,
-                            color: AppColors.cardBg,
-                            child: const Center(
-                              child: Icon(Icons.broken_image, color: AppColors.textMuted, size: 40),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                    
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        // ปุ่ม Like
-                        InkWell(
-                          onTap: () => _toggleLike(context, post),
-                          child: Row(
+
+                          const SizedBox(height: 16),
+                          Row(
                             children: [
-                              Icon(
-                                isLiked ? Icons.favorite : Icons.favorite_border,
-                                color: isLiked ? Colors.redAccent : AppColors.textMuted,
-                                size: 20,
+                              Expanded(
+                                child: PostEngagementBar(
+                                  post: post,
+                                  userId: signedInUid,
+                                  onLike: () => _toggleLike(context, post),
+                                  onDislike: () => _toggleDislike(post),
+                                  onReaction: (emoji) =>
+                                      _setPostReaction(post, emoji),
+                                ),
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${post.likes.length}',
-                                style: TextStyle(
-                                  color: isLiked ? Colors.redAccent : AppColors.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                              // ปุ่ม Comment ที่กดเปิด Modal Sheet ได้แล้ว
+                              InkWell(
+                                onTap: () =>
+                                    _showCommentsModal(context, post.postId),
+                                child: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.chat_bubble_outline,
+                                      color: AppColors.textMuted,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Comment',
+                                      style: TextStyle(
+                                        color: AppColors.textMuted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: 24),
-                        // ปุ่ม Comment ที่กดเปิด Modal Sheet ได้แล้ว
-                        InkWell(
-                          onTap: () => _showCommentsModal(context, post.postId),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.chat_bubble_outline, color: AppColors.textMuted, size: 20),
-                              SizedBox(width: 6),
-                              Text('Comment', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 }

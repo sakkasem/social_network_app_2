@@ -12,6 +12,10 @@ import '/models/post_model.dart';
 import '/providers/auth_provider.dart';
 import '/services/cloudinary_service.dart';
 import '/widgets/post_author_avatar.dart';
+import '/widgets/network_video_player.dart';
+import '/widgets/hashtag_text.dart';
+import '/widgets/post_engagement_bar.dart';
+import '/services/post_engagement_service.dart';
 import 'group_chat_screen.dart';
 import 'group_management_screen.dart';
 
@@ -200,7 +204,12 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      _GroupFeedTab(groupId: widget.groupId, isMember: isMember, onCreatePost: _createPost),
+                      _GroupFeedTab(
+                        groupId: widget.groupId,
+                        isMember: isMember,
+                        creatorUid: (group['createdBy'] ?? '').toString(),
+                        onCreatePost: _createPost,
+                      ),
                       _GroupMembersTab(members: members, creatorUid: (group['createdBy'] ?? '').toString()),
                     ],
                   ),
@@ -278,9 +287,10 @@ class _GroupCover extends StatelessWidget {
 class _GroupFeedTab extends StatelessWidget {
   final String groupId;
   final bool isMember;
+  final String creatorUid;
   final VoidCallback onCreatePost;
 
-  const _GroupFeedTab({required this.groupId, required this.isMember, required this.onCreatePost});
+  const _GroupFeedTab({required this.groupId, required this.isMember, required this.creatorUid, required this.onCreatePost});
 
   @override
   Widget build(BuildContext context) {
@@ -323,7 +333,11 @@ class _GroupFeedTab extends StatelessWidget {
                 itemCount: snapshot.data!.docs.length,
                 itemBuilder: (context, index) {
                   final doc = snapshot.data!.docs[index];
-                  return _GroupPostCard(groupId: groupId, post: PostModel.fromMap(doc.data(), doc.id));
+                  return _GroupPostCard(
+                    groupId: groupId,
+                    creatorUid: creatorUid,
+                    post: PostModel.fromMap(doc.data(), doc.id),
+                  );
                 },
               );
             },
@@ -337,14 +351,15 @@ class _GroupFeedTab extends StatelessWidget {
 /// _GroupPostCard รวมหน้าที่เฉพาะของส่วนประกอบนี้ไว้ในตำแหน่งเดียว.
 class _GroupPostCard extends StatelessWidget {
   final String groupId;
+  final String creatorUid;
   final PostModel post;
 
-  const _GroupPostCard({required this.groupId, required this.post});
+  const _GroupPostCard({required this.groupId, required this.creatorUid, required this.post});
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser;
-    final isLiked = user != null && post.likes.contains(user.uid);
+    final userId = user?.uid ?? '';
     final postRef = FirebaseFirestore.instance.collection('groups').doc(groupId).collection('posts').doc(post.postId);
     return Card(
       color: AppColors.cardBg,
@@ -374,13 +389,31 @@ class _GroupPostCard extends StatelessWidget {
                   ),
                 ),
                 Text(_timeLabel(post.createdAt), style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                if (user != null && (user.uid == post.uid || user.uid == creatorUid))
+                  PopupMenuButton<String>(
+                    color: AppColors.cardBg,
+                    onSelected: (action) {
+                      if (action == 'edit' && user.uid == post.uid) _editPost(context, postRef, post);
+                      if (action == 'delete') _deletePost(context, postRef);
+                    },
+                    itemBuilder: (_) => [
+                      if (user.uid == post.uid) const PopupMenuItem(value: 'edit', child: Text('Edit post')),
+                      const PopupMenuItem(value: 'delete', child: Text('Delete post')),
+                    ],
+                  ),
               ],
             ),
             if (post.content.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(post.content, style: const TextStyle(color: Colors.white, height: 1.4)),
+              HashtagText(text: post.content, style: const TextStyle(color: Colors.white, height: 1.4)),
             ],
-            if (post.imageUrl.isNotEmpty) ...[
+            if (post.videoUrl.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: NetworkVideoPlayer(url: post.videoUrl, height: 220),
+              ),
+            ] else if (post.imageUrl.isNotEmpty) ...[
               const SizedBox(height: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
@@ -396,23 +429,14 @@ class _GroupPostCard extends StatelessWidget {
             const Divider(color: AppColors.border, height: 22),
             Row(
               children: [
-                TextButton.icon(
-                  onPressed: user == null
-                      ? null
-                      : () async {
-                          try {
-                            await postRef.update({
-                              // เพิ่มหรือนำ uid ออกจาก likes แบบ atomic โดยไม่แทนทั้งรายการ
-                              'likes': isLiked ? FieldValue.arrayRemove([user.uid]) : FieldValue.arrayUnion([user.uid]),
-                            });
-                          } catch (_) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not update like.')));
-                            }
-                          }
-                        },
-                  icon: Icon(isLiked ? Icons.favorite : Icons.favorite_border, color: isLiked ? Colors.redAccent : AppColors.textMuted),
-                  label: Text('${post.likes.length}', style: const TextStyle(color: AppColors.textMuted)),
+                Expanded(
+                  child: PostEngagementBar(
+                    post: post,
+                    userId: userId,
+                    onLike: user == null ? () {} : () => _toggleVote(context, postRef, post, user.uid, isLike: true),
+                    onDislike: user == null ? () {} : () => _toggleVote(context, postRef, post, user.uid, isLike: false),
+                    onReaction: user == null ? (_) {} : (emoji) => _setReaction(context, postRef, user.uid, emoji),
+                  ),
                 ),
                 TextButton.icon(
                   onPressed: () => _showComments(context, groupId, post.postId),
@@ -425,6 +449,100 @@ class _GroupPostCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _editPost(
+    BuildContext context,
+    DocumentReference<Map<String, dynamic>> postRef,
+    PostModel post,
+  ) async {
+    final controller = TextEditingController(text: post.content);
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBg,
+        title: const Text('Edit group post', style: TextStyle(color: Colors.white)),
+        content: TextField(controller: controller, maxLength: 1000, maxLines: 4, style: const TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save')),
+        ],
+      ),
+    );
+    final content = controller.text.trim();
+    controller.dispose();
+    if (save != true || (content.isEmpty && post.imageUrl.isEmpty && post.videoUrl.isEmpty) || !context.mounted) return;
+    try {
+      await postRef.update({'content': content, 'hashtags': HashtagText.extract(content)});
+    } catch (_) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not update group post.')));
+    }
+  }
+
+  Future<void> _deletePost(BuildContext context, DocumentReference<Map<String, dynamic>> postRef) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBg,
+        title: const Text('Delete group post?', style: TextStyle(color: Colors.white)),
+        content: const Text('This also removes its comments.', style: TextStyle(color: AppColors.textMuted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Delete', style: TextStyle(color: Colors.redAccent))),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      while (true) {
+        final comments = await postRef.collection('comments').limit(450).get();
+        if (comments.docs.isEmpty) break;
+        final batch = FirebaseFirestore.instance.batch();
+        for (final comment in comments.docs) {
+          batch.delete(comment.reference);
+        }
+        await batch.commit();
+      }
+      await postRef.delete();
+    } catch (_) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not delete group post.')));
+    }
+  }
+
+  Future<void> _toggleVote(
+    BuildContext context,
+    DocumentReference<Map<String, dynamic>> postRef,
+    PostModel post,
+    String uid, {
+    required bool isLike,
+  }) async {
+    try {
+      await PostEngagementService.toggleVote(
+        postRef: postRef,
+        userId: uid,
+        currentlySelected: (isLike ? post.likes : post.dislikes).contains(uid),
+        isLike: isLike,
+      );
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not update reaction.')));
+      }
+    }
+  }
+
+  Future<void> _setReaction(
+    BuildContext context,
+    DocumentReference<Map<String, dynamic>> postRef,
+    String uid,
+    String? emoji,
+  ) async {
+    try {
+      await PostEngagementService.setReaction(postRef: postRef, userId: uid, emoji: emoji);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not save reaction.')));
+      }
+    }
   }
 
   static String _timeLabel(Timestamp timestamp) {
@@ -523,7 +641,7 @@ class _GroupMembersTab extends StatelessWidget {
       itemBuilder: (context, index) {
         final uid = members[index];
         return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
+          future: FirebaseFirestore.instance.collection('user_directory').doc(uid).get(),
           builder: (context, snapshot) {
             final data = snapshot.data?.data();
             final name = (data?['displayName'] ?? 'Member').toString();
@@ -558,6 +676,8 @@ class _CreateGroupPostDialog extends StatefulWidget {
 class _CreateGroupPostDialogState extends State<_CreateGroupPostDialog> {
   final _contentController = TextEditingController();
   Uint8List? _imageBytes;
+  Uint8List? _videoBytes;
+  String? _videoFilename;
   bool _saving = false;
 
   @override
@@ -572,9 +692,35 @@ class _CreateGroupPostDialogState extends State<_CreateGroupPostDialog> {
       final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 75);
       if (image == null) return;
       final bytes = await image.readAsBytes();
-      if (mounted) setState(() => _imageBytes = bytes);
+      if (mounted) {
+        setState(() {
+          _imageBytes = bytes;
+          _videoBytes = null;
+          _videoFilename = null;
+        });
+      }
     } catch (_) {
       if (mounted) _showMessage('Could not select image. Please try again.');
+    }
+  }
+
+  Future<void> _pickVideo() async {
+    try {
+      final video = await ImagePicker().pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 2),
+      );
+      if (video == null) return;
+      final bytes = await video.readAsBytes();
+      if (mounted) {
+        setState(() {
+          _videoBytes = bytes;
+          _videoFilename = video.name;
+          _imageBytes = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) _showMessage('Could not select video. Please try again.');
     }
   }
 
@@ -582,12 +728,20 @@ class _CreateGroupPostDialogState extends State<_CreateGroupPostDialog> {
   Future<void> _publish() async {
     final user = context.read<AuthProvider>().currentUser;
     final content = _contentController.text.trim();
-    if (user == null || (content.isEmpty && _imageBytes == null)) return;
+    if (user == null || (content.isEmpty && _imageBytes == null && _videoBytes == null)) return;
     setState(() => _saving = true);
     try {
       var imageUrl = '';
+      var videoUrl = '';
       if (_imageBytes != null) {
         imageUrl = await CloudinaryService.uploadImage(_imageBytes!, filenamePrefix: 'group_post');
+      }
+      if (_videoBytes != null) {
+        videoUrl = await CloudinaryService.uploadVideo(
+          _videoBytes!,
+          filenamePrefix: 'group_post_${user.uid}',
+          filename: _videoFilename ?? 'video.mp4',
+        );
       }
       final profileSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       final profile = profileSnapshot.data();
@@ -603,13 +757,18 @@ class _CreateGroupPostDialogState extends State<_CreateGroupPostDialog> {
         'userPhotoUrl': latestPhotoUrl,
         'content': content,
         'imageUrl': imageUrl,
+        'videoUrl': videoUrl,
+        'mediaType': videoUrl.isNotEmpty ? 'video' : (imageUrl.isNotEmpty ? 'image' : 'text'),
+        'hashtags': HashtagText.extract(content),
         'likes': <String>[],
+        'dislikes': <String>[],
+        'reactions': <String, String>{},
         'createdAt': FieldValue.serverTimestamp(),
       });
       if (mounted) Navigator.pop(context, true);
     } catch (_) {
       if (mounted) {
-        _showMessage(_imageBytes == null ? 'Could not publish this post.' : 'Image upload or post creation failed. Please try again.');
+        _showMessage(_imageBytes == null && _videoBytes == null ? 'Could not publish this post.' : 'Media upload or post creation failed. Please try again.');
         setState(() => _saving = false);
       }
     }
@@ -636,12 +795,33 @@ class _CreateGroupPostDialogState extends State<_CreateGroupPostDialog> {
                 ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.memory(_imageBytes!, height: 160, fit: BoxFit.cover)),
                 TextButton.icon(onPressed: _saving ? null : () => setState(() => _imageBytes = null), icon: const Icon(Icons.close), label: const Text('Remove image')),
               ],
+              if (_videoBytes != null)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.video_file_outlined, color: AppColors.goldPrimary),
+                  title: Text(_videoFilename ?? 'Selected video', style: const TextStyle(color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  trailing: IconButton(
+                    onPressed: _saving ? null : () => setState(() {
+                      _videoBytes = null;
+                      _videoFilename = null;
+                    }),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ),
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: _saving ? null : _pickImage,
                   icon: const Icon(Icons.image_outlined, color: AppColors.goldPrimary),
                   label: const Text('Add photo', style: TextStyle(color: AppColors.goldPrimary)),
+                ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _saving ? null : _pickVideo,
+                  icon: const Icon(Icons.video_library_outlined, color: AppColors.goldPrimary),
+                  label: const Text('Add video', style: TextStyle(color: AppColors.goldPrimary)),
                 ),
               ),
             ],

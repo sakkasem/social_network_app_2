@@ -11,8 +11,11 @@ class PostModel {
   final String userPhotoUrl;
   final String content;
   final String imageUrl;
+  final String videoUrl;
   final Timestamp createdAt;
   final List<String> likes;
+  final List<String> dislikes;
+  final Map<String, String> reactions;
 
   PostModel({
     required this.postId,
@@ -22,8 +25,11 @@ class PostModel {
     this.userPhotoUrl = '',
     required this.content,
     required this.imageUrl,
+    this.videoUrl = '',
     required this.createdAt,
     required this.likes,
+    this.dislikes = const [],
+    this.reactions = const {},
   });
 
   /// สร้างโมเดลจากข้อมูล Firestore และใช้ document id เป็น postId.
@@ -36,8 +42,11 @@ class PostModel {
       userPhotoUrl: (map['userPhotoUrl'] ?? '').toString(),
       content: map['content'] ?? '',
       imageUrl: map['imageUrl'] ?? '',
+      videoUrl: (map['videoUrl'] ?? '').toString(),
       createdAt: map['createdAt'] ?? Timestamp.now(),
       likes: List<String>.from(map['likes'] ?? []),
+      dislikes: List<String>.from(map['dislikes'] ?? []),
+      reactions: Map<String, String>.from(map['reactions'] ?? const <String, String>{}),
     );
   }
 
@@ -50,8 +59,11 @@ class PostModel {
       'userPhotoUrl': userPhotoUrl,
       'content': content,
       'imageUrl': imageUrl,
+      'videoUrl': videoUrl,
       'createdAt': createdAt,
       'likes': likes,
+      'dislikes': dislikes,
+      'reactions': reactions,
     };
   }
 }

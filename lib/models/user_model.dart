@@ -8,6 +8,7 @@ class UserModel {
   final String displayName;
   final String? photoUrl;
   final String bio;
+  final bool isPrivate;
 
   UserModel({
     required this.uid,
@@ -16,6 +17,7 @@ class UserModel {
     required this.displayName,
     this.photoUrl,
     this.bio = '',
+    this.isPrivate = false,
   });
 
   /// แปลงข้อมูลจากเอกสาร Firestore เป็น UserModel โดยใช้ document id เป็น uid.
@@ -27,6 +29,7 @@ class UserModel {
       displayName: map['displayName'] ?? '',
       photoUrl: map['photoUrl'],
       bio: map['bio'] ?? '',
+      isPrivate: map['isPrivate'] == true,
     );
   }
 
@@ -39,6 +42,7 @@ class UserModel {
       'displayName': displayName,
       'photoUrl': photoUrl,
       'bio': bio,
+      'isPrivate': isPrivate,
     };
   }
 }

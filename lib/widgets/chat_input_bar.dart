@@ -11,6 +11,7 @@ class ChatInputBar extends StatelessWidget {
   final bool isBusy;
   final VoidCallback onSend;
   final VoidCallback onPickImage;
+  final VoidCallback onPickVideo;
 
   const ChatInputBar({
     super.key,
@@ -19,6 +20,7 @@ class ChatInputBar extends StatelessWidget {
     required this.isBusy,
     required this.onSend,
     required this.onPickImage,
+    required this.onPickVideo,
   });
 
   /// แทนอีโมจิในช่วงข้อความที่เลือก หรือแทรกที่ตำแหน่งเคอร์เซอร์ปัจจุบัน.
@@ -79,6 +81,11 @@ class ChatInputBar extends StatelessWidget {
                 tooltip: 'Choose photo',
                 onPressed: isBusy ? null : onPickImage,
                 icon: const Icon(Icons.photo_outlined, color: AppColors.goldPrimary),
+              ),
+              IconButton(
+                tooltip: 'Choose video',
+                onPressed: isBusy ? null : onPickVideo,
+                icon: const Icon(Icons.video_library_outlined, color: AppColors.goldPrimary),
               ),
               Expanded(
                 child: Container(

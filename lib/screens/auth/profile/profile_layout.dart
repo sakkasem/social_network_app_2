@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 
 import '/core/theme/app_theme.dart';
 import '/models/post_model.dart';
+import '/widgets/hashtag_text.dart';
+import '/widgets/network_video_player.dart';
 
 /// เลย์เอาต์โปรไฟล์ร่วมที่แสดงข้อมูล สถิติ ไฮไลต์ และโพสต์ของผู้ใช้ทั้งตนเองและผู้อื่น.
 class InstagramProfileLayout extends StatefulWidget {
@@ -14,6 +16,7 @@ class InstagramProfileLayout extends StatefulWidget {
   final String photoUrl;
   final String bio;
   final bool isOwnProfile;
+  final bool isPrivateProfile;
   final Widget actionButtons;
 
   const InstagramProfileLayout({
@@ -24,6 +27,7 @@ class InstagramProfileLayout extends StatefulWidget {
     required this.photoUrl,
     required this.bio,
     required this.isOwnProfile,
+    this.isPrivateProfile = false,
     required this.actionButtons,
   });
 
@@ -44,14 +48,16 @@ class _InstagramProfileLayoutState extends State<InstagramProfileLayout> {
   @override
   void didUpdateWidget(covariant InstagramProfileLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.userId != widget.userId) _statsFuture = _loadStats();
+    if (oldWidget.userId != widget.userId || oldWidget.isPrivateProfile != widget.isPrivateProfile) {
+      _statsFuture = _loadStats();
+    }
   }
 
   /// ดึงจำนวนโพสต์ ผู้ติดตาม และกำลังติดตามจาก Firestore เพื่อแสดงใน header.
   Future<_ProfileStats> _loadStats() async {
     final firestore = FirebaseFirestore.instance;
     final results = await Future.wait([
-      firestore.collection('posts').where('uid', isEqualTo: widget.userId).count().get(),
+      firestore.collection('posts').where('uid', isEqualTo: widget.userId).where('visibility', isEqualTo: widget.isPrivateProfile ? 'followers' : 'public').count().get(),
       firestore.collectionGroup('following').where('targetUid', isEqualTo: widget.userId).count().get(),
       firestore.collection('users').doc(widget.userId).collection('following').count().get(),
     ]);
@@ -94,7 +100,7 @@ class _InstagramProfileLayoutState extends State<InstagramProfileLayout> {
             ],
             body: TabBarView(
               children: [
-                _ProfilePostGrid(userId: widget.userId),
+                _ProfilePostGrid(userId: widget.userId, isPrivateProfile: widget.isPrivateProfile),
                 const _ProfilePlaceholder(icon: Icons.alternate_email_rounded, title: 'No tagged posts yet'),
                 const _ProfilePlaceholder(icon: Icons.bookmark_border_rounded, title: 'No saved posts yet'),
               ],
@@ -263,8 +269,9 @@ class _TabHeaderDelegate extends SliverPersistentHeaderDelegate {
 /// ดึงโพสต์ของผู้ใช้และแสดงภาพหรือข้อความในตารางสามคอลัมน์.
 class _ProfilePostGrid extends StatefulWidget {
   final String userId;
+  final bool isPrivateProfile;
 
-  const _ProfilePostGrid({required this.userId});
+  const _ProfilePostGrid({required this.userId, required this.isPrivateProfile});
 
   @override
   State<_ProfilePostGrid> createState() => _ProfilePostGridState();
@@ -274,7 +281,11 @@ class _ProfilePostGrid extends StatefulWidget {
 class _ProfilePostGridState extends State<_ProfilePostGrid> {
   @override
   Widget build(BuildContext context) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('posts').where('uid', isEqualTo: widget.userId).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('posts')
+            .where('uid', isEqualTo: widget.userId)
+            .where('visibility', isEqualTo: widget.isPrivateProfile ? 'followers' : 'public')
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
@@ -310,7 +321,12 @@ class _ProfilePostGridState extends State<_ProfilePostGrid> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    if (post.imageUrl.isNotEmpty)
+                    if (post.videoUrl.isNotEmpty)
+                      Container(
+                        color: AppColors.cardBg,
+                        child: const Center(child: Icon(Icons.play_circle_outline, color: AppColors.goldPrimary, size: 42)),
+                      )
+                    else if (post.imageUrl.isNotEmpty)
                       Image.network(post.imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _textPostTile(post.content))
                     else
                       _textPostTile(post.content),
@@ -406,9 +422,12 @@ class _PostDetailScreen extends StatelessWidget {
               title: Text(post.displayName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               subtitle: Text('@${post.username}', style: const TextStyle(color: AppColors.textMuted)),
             ),
-            if (post.imageUrl.isNotEmpty) Image.network(post.imageUrl, fit: BoxFit.contain),
+            if (post.videoUrl.isNotEmpty)
+              NetworkVideoPlayer(url: post.videoUrl, height: 300)
+            else if (post.imageUrl.isNotEmpty)
+              Image.network(post.imageUrl, fit: BoxFit.contain),
             if (post.content.isNotEmpty)
-              Padding(padding: const EdgeInsets.all(16), child: Text(post.content, style: const TextStyle(color: Colors.white, height: 1.4))),
+              Padding(padding: const EdgeInsets.all(16), child: HashtagText(text: post.content, style: const TextStyle(color: Colors.white, height: 1.4))),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text('${post.likes.length} likes', style: const TextStyle(color: AppColors.goldPrimary, fontWeight: FontWeight.w600)),

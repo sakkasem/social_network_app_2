@@ -68,19 +68,44 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
   }
 
+  Future<void> _pickAndSendVideo() async {
+    final user = context.read<AuthProvider>().currentUser;
+    if (user == null || _isSending) return;
+    try {
+      final picked = await ImagePicker().pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 2),
+      );
+      if (picked == null || !mounted) return;
+      setState(() => _isSending = true);
+      final videoUrl = await CloudinaryService.uploadVideo(
+        await picked.readAsBytes(),
+        filenamePrefix: 'group_chat_${widget.groupId}',
+        filename: picked.name,
+      );
+      await _persistMessage(senderId: user.uid, senderName: user.displayName, text: '🎬 Video', videoUrl: videoUrl);
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not upload or send the video.')));
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
   /// บันทึกข้อความและ metadata ผู้ส่งลง subcollection messages ของกลุ่ม.
   Future<void> _persistMessage({
     required String senderId,
     required String senderName,
     required String text,
     String imageUrl = '',
+    String videoUrl = '',
   }) async {
     await FirebaseFirestore.instance.collection('groups').doc(widget.groupId).collection('messages').add({
       'senderId': senderId,
       'senderName': senderName,
       'message': text,
       'imageUrl': imageUrl,
-      'type': imageUrl.isEmpty ? 'text' : 'image',
+      'videoUrl': videoUrl,
+      'type': videoUrl.isNotEmpty ? 'video' : (imageUrl.isEmpty ? 'text' : 'image'),
       'timestamp': FieldValue.serverTimestamp(),
     });
   }
@@ -146,6 +171,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       isMe: isMe,
                       message: (data['message'] ?? '').toString(),
                       imageUrl: (data['imageUrl'] ?? '').toString(),
+                      videoUrl: (data['videoUrl'] ?? '').toString(),
                       timestamp: data['timestamp'] is Timestamp ? data['timestamp'] as Timestamp : null,
                     );
                   },
@@ -159,6 +185,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             isBusy: _isSending,
             onSend: _sendMessage,
             onPickImage: _pickAndSendImage,
+            onPickVideo: _pickAndSendVideo,
           ),
         ],
       ),

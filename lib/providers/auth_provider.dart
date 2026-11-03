@@ -16,6 +16,30 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  Future<void> _syncUserDirectory(UserModel user) {
+    return _firestore.collection('user_directory').doc(user.uid).set({
+      'uid': user.uid,
+      'username': user.username,
+      'displayName': user.displayName,
+      'photoUrl': user.photoUrl ?? '',
+      'isPrivate': user.isPrivate,
+    });
+  }
+
+  Future<void> _backfillOwnPostFields(UserModel user) async {
+    final snapshot = await _firestore.collection('posts').where('uid', isEqualTo: user.uid).get();
+    final legacyPosts = snapshot.docs.where((doc) => !doc.data().containsKey('visibility')).toList();
+    for (var start = 0; start < legacyPosts.length; start += 450) {
+      final batch = _firestore.batch();
+      for (final doc in legacyPosts.skip(start).take(450)) {
+        batch.update(doc.reference, {
+          'visibility': user.isPrivate ? 'followers' : 'public',
+        });
+      }
+      await batch.commit();
+    }
+  }
+
   /// สร้างบัญชี Firebase Auth และเอกสารโปรไฟล์ Firestore; คืน true เมื่อสำเร็จ.
   Future<bool> signUp({
     required String email,
@@ -42,6 +66,7 @@ class AuthProvider with ChangeNotifier {
       );
 
       await _firestore.collection('users').doc(newUser.uid).set(newUser.toMap());
+      await _syncUserDirectory(newUser);
       _currentUser = newUser;
 
       _isLoading = false;
@@ -73,6 +98,8 @@ class AuthProvider with ChangeNotifier {
       DocumentSnapshot doc = await _firestore.collection('users').doc(credential.user!.uid).get();
       if (doc.exists) {
         _currentUser = UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        await _syncUserDirectory(_currentUser!);
+        await _backfillOwnPostFields(_currentUser!);
       }
 
       _isLoading = false;
@@ -101,6 +128,7 @@ class AuthProvider with ChangeNotifier {
       DocumentSnapshot doc = await _firestore.collection('users').doc(firebaseUser!.uid).get();
       if (doc.exists) {
         _currentUser = UserModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        await _syncUserDirectory(_currentUser!);
         notifyListeners();
       }
     } catch (e) {

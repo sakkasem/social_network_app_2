@@ -13,49 +13,99 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/posts/$(postId)).data.uid == request.auth.uid;
     }
 
-    // อนุญาตเฉพาะการเปลี่ยนแปลง likes แบบเพิ่ม/ถอน uid หนึ่งรายการ
-    // เงื่อนไข diff ป้องกันไม่ให้การกดไลก์เปลี่ยนเนื้อหาหรือฟิลด์อื่นไปพร้อมกัน
-    function isLikeOnlyChange() {
+    // Posts public are visible to signed-in users; posts followers-only require a follow edge.
+    function canReadPost() {
       return signedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
-        && request.resource.data.likes is list
-        && resource.data.likes is list
-        && (
-          (request.resource.data.likes.size() == resource.data.likes.size() + 1
-            && request.resource.data.likes.hasAll(resource.data.likes)
-            && request.resource.data.likes.hasAny([request.auth.uid]))
-          ||
-          (resource.data.likes.size() == request.resource.data.likes.size() + 1
-            && resource.data.likes.hasAll(request.resource.data.likes)
-            && resource.data.likes.hasAny([request.auth.uid])
-            && !request.resource.data.likes.hasAny([request.auth.uid]))
-        );
+        && (resource.data.uid == request.auth.uid
+          || resource.data.get('visibility', 'public') == 'public'
+          || exists(/databases/$(database)/documents/users/$(request.auth.uid)/following/$(resource.data.uid)));
+    }
+
+    // ใช้กับ subcollection comments เพราะ resource ตรงนั้นเป็นเอกสารคอมเมนต์เอง
+    function canReadParentPost(postId) {
+      let parentPost = get(/databases/$(database)/documents/posts/$(postId)).data;
+      return signedIn()
+        && (parentPost.uid == request.auth.uid
+          || parentPost.get('visibility', 'public') == 'public'
+          || exists(/databases/$(database)/documents/users/$(request.auth.uid)/following/$(parentPost.uid)));
+    }
+
+    // ตรวจว่า array เปลี่ยนเฉพาะ uid ของผู้ใช้ที่ล็อกอิน โดยรองรับค่าเดิมที่ไม่เปลี่ยน
+    function isSelfArrayChange(before, after) {
+      return before is list && after is list && (
+        before == after
+        || (after.size() == before.size() + 1
+          && after.hasAll(before)
+          && after.hasAny([request.auth.uid])
+          && !before.hasAny([request.auth.uid]))
+        || (before.size() == after.size() + 1
+          && before.hasAll(after)
+          && before.hasAny([request.auth.uid])
+          && !after.hasAny([request.auth.uid]))
+      );
+    }
+
+    // Like/Dislike และ reaction อนุญาตแก้เฉพาะสถานะของผู้ใช้ปัจจุบันเท่านั้น
+    function isEngagementUpdate() {
+      let beforeReactions = resource.data.get('reactions', {});
+      let afterReactions = request.resource.data.get('reactions', {});
+      return signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'dislikes', 'reactions'])
+        && isSelfArrayChange(resource.data.get('likes', []), request.resource.data.get('likes', []))
+        && isSelfArrayChange(resource.data.get('dislikes', []), request.resource.data.get('dislikes', []))
+        && request.resource.data.get('likes', []) is list
+        && request.resource.data.get('dislikes', []) is list
+        && !(request.resource.data.get('likes', []).hasAny([request.auth.uid])
+          && request.resource.data.get('dislikes', []).hasAny([request.auth.uid]))
+        && beforeReactions is map
+        && afterReactions is map
+        && afterReactions.diff(beforeReactions).affectedKeys().hasOnly([request.auth.uid])
+        && (!afterReactions.keys().hasAny([request.auth.uid])
+          || afterReactions[request.auth.uid] in ['❤️', '😆', '😮', '😢']);
     }
 
     // โพสต์หลัก: ผู้ใช้ที่ล็อกอินอ่านได้, สร้างได้เฉพาะ uid ตนเอง,
     // แก้เนื้อหา/ลบได้โดยเจ้าของ และอนุญาตการเปลี่ยน likes ตาม helper ด้านบน
     match /posts/{postId} {
-      allow read: if signedIn();
+      allow read: if canReadPost();
       allow create: if signedIn()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.content is string
         && request.resource.data.content.size() <= 1000
-        && request.resource.data.likes is list;
+        && request.resource.data.likes is list
+        && request.resource.data.get('dislikes', []) is list
+        && request.resource.data.get('reactions', {}) is map
+        && request.resource.data.get('hashtags', []) is list
+        && request.resource.data.get('visibility', 'public') in ['public', 'followers']
+        && request.resource.data.get('visibility', 'public') == (
+          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('privacyChanging', false)
+            ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('privacyTargetPrivate', false)
+            : get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isPrivate', false))
+            ? 'followers'
+            : 'public');
       allow update: if signedIn() && (
         (resource.data.uid == request.auth.uid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'hashtags'])
           && request.resource.data.content is string
-          && request.resource.data.content.size() <= 1000)
-        || isLikeOnlyChange()
+          && request.resource.data.content.size() <= 1000
+          && request.resource.data.get('hashtags', []) is list)
+        || (resource.data.uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['visibility'])
+          && request.resource.data.visibility in ['public', 'followers']
+          && request.resource.data.visibility == (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('privacyChanging', false)
+              ? (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('privacyTargetPrivate', false) ? 'followers' : 'public')
+              : (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isPrivate', false) ? 'followers' : 'public')))
+        || (canReadPost() && isEngagementUpdate())
       );
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
 
       // คอมเมนต์ต้องผูกกับโพสต์ที่มีอยู่; ผู้เขียนแก้ไข/ลบของตนเองได้
       // เจ้าของโพสต์สามารถลบคอมเมนต์ในโพสต์ของตนเพื่อดูแลเนื้อหา
       match /comments/{commentId} {
-        allow read: if signedIn();
+        allow read: if canReadParentPost(postId);
         allow create: if signedIn()
-          && exists(/databases/$(database)/documents/posts/$(postId))
+          && canReadParentPost(postId)
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
@@ -73,18 +123,25 @@ service cloud.firestore {
 
     // เอกสารผู้ใช้: ผู้ใช้ที่ล็อกอินอ่านได้ แต่เจ้าของบัญชีเท่านั้นที่เขียนข้อมูลโปรไฟล์
     match /users/{userId} {
-      allow read: if signedIn();
+      allow read: if signedIn() && (
+        request.auth.uid == userId
+        || !resource.data.get('isPrivate', false)
+        || exists(/databases/$(database)/documents/users/$(request.auth.uid)/following/$(userId))
+      );
       allow create: if signedIn() && request.auth.uid == userId;
       allow update: if signedIn()
         && request.auth.uid == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'bio', 'photoUrl'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'bio', 'photoUrl', 'isPrivate', 'privacyChanging', 'privacyTargetPrivate'])
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() > 0
         && request.resource.data.displayName.size() <= 60
         && request.resource.data.bio is string
         && request.resource.data.bio.size() <= 160
         && request.resource.data.photoUrl is string
-        && request.resource.data.photoUrl.size() <= 2048;
+        && request.resource.data.photoUrl.size() <= 2048
+        && request.resource.data.get('isPrivate', resource.data.get('isPrivate', false)) is bool
+        && request.resource.data.get('privacyChanging', resource.data.get('privacyChanging', false)) is bool
+        && request.resource.data.get('privacyTargetPrivate', resource.data.get('privacyTargetPrivate', false)) is bool;
       allow delete: if false;
 
       // แจ้งเตือนเป็นข้อมูลส่วนตัว: ผู้รับอ่าน/แก้สถานะอ่าน/ลบได้
@@ -171,6 +228,25 @@ service cloud.firestore {
       }
     }
 
+    // Allow signed-in collection-group queries used to count followers.
+    // The nested users/{userId}/following rule alone does not authorize a collection-group query.
+    match /{path=**}/following/{targetUid} {
+      allow read: if signedIn();
+    }
+
+    // Public directory exposes only safe discovery fields; email and private bio stay in users.
+    match /user_directory/{userId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.username is string
+        && request.resource.data.displayName is string
+        && request.resource.data.photoUrl is string
+        && request.resource.data.isPrivate is bool;
+      allow delete: if false;
+    }
+
     // รับเฉพาะการสร้างรายงานที่ระบุผู้รายงานและเป้าหมายถูกต้อง
     // อ่าน/แก้/ลบรายงานปิดไว้สำหรับ client ทั่วไป
     match /reports/{reportId} {
@@ -241,6 +317,11 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
       }
 
+      function groupCreator() {
+        return signedIn()
+          && get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid;
+      }
+
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.createdBy == request.auth.uid
@@ -270,6 +351,13 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['coverPhotoUrl'])
           && request.resource.data.coverPhotoUrl is string
           && request.resource.data.coverPhotoUrl.size() <= 2048)
+        || (resource.data.createdBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 80
+          && request.resource.data.description is string
+          && request.resource.data.description.size() <= 500)
       );
       allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
       // ข้อความกลุ่มอ่าน/สร้างได้เฉพาะสมาชิก และสร้างได้ในนามผู้ใช้ปัจจุบัน
@@ -280,12 +368,14 @@ service cloud.firestore {
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.message is string
           && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if signedIn()
+          && get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid;
       }
 
       // โพสต์และคอมเมนต์ในกลุ่มจำกัดสมาชิก; ปฏิกิริยาและการลบมีข้อจำกัดเฉพาะ
       match /posts/{postId} {
-        allow read: if groupMember();
+        allow read: if groupMember() || groupCreator();
         allow create: if groupMember()
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.groupId == groupId
@@ -294,27 +384,25 @@ service cloud.firestore {
           && request.resource.data.imageUrl is string
           && request.resource.data.likes is list
           && request.resource.data.likes.size() == 0
-          && request.resource.data.createdAt is timestamp;
-        allow update: if groupMember()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
-          && request.resource.data.likes is list
-          && resource.data.likes is list
-          && (
-            (request.resource.data.likes.size() == resource.data.likes.size() + 1
-              && request.resource.data.likes.hasAll(resource.data.likes)
-              && request.resource.data.likes.hasAny([request.auth.uid]))
-            ||
-            (resource.data.likes.size() == request.resource.data.likes.size() + 1
-              && resource.data.likes.hasAll(request.resource.data.likes)
-              && resource.data.likes.hasAny([request.auth.uid])
-              && !request.resource.data.likes.hasAny([request.auth.uid]))
-          );
-        allow delete: if groupMember()
+          && request.resource.data.get('dislikes', []) is list
+          && request.resource.data.get('reactions', {}) is map
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.get('videoUrl', '') is string
+          && request.resource.data.get('hashtags', []) is list;
+        allow update: if groupMember() && (
+          isEngagementUpdate()
+          || (resource.data.uid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'hashtags'])
+            && request.resource.data.content is string
+            && request.resource.data.content.size() <= 1000
+            && request.resource.data.get('hashtags', []) is list)
+        );
+        allow delete: if signedIn()
           && (resource.data.uid == request.auth.uid
             || get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid);
 
         match /comments/{commentId} {
-          allow read: if groupMember();
+          allow read: if groupMember() || groupCreator();
           allow create: if groupMember()
             && request.resource.data.uid == request.auth.uid
             && request.resource.data.text is string
@@ -327,7 +415,7 @@ service cloud.firestore {
             && request.resource.data.text is string
             && request.resource.data.text.size() > 0
             && request.resource.data.text.size() <= 1000;
-          allow delete: if groupMember()
+          allow delete: if signedIn()
             && (resource.data.uid == request.auth.uid
               || get(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == request.auth.uid);
         }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '/core/theme/app_theme.dart';
 import '/widgets/post_author_avatar.dart';
+import '/widgets/network_video_player.dart';
 
 /// Bubble สำหรับแสดงข้อความหรือภาพ พร้อมแยกสีตามผู้ส่งและแสดงเวลา.
 class ChatMessageBubble extends StatelessWidget {
@@ -13,6 +14,7 @@ class ChatMessageBubble extends StatelessWidget {
   final bool isMe;
   final String message;
   final String imageUrl;
+  final String videoUrl;
   final Timestamp? timestamp;
 
   const ChatMessageBubble({
@@ -22,6 +24,7 @@ class ChatMessageBubble extends StatelessWidget {
     required this.isMe,
     required this.message,
     this.imageUrl = '',
+    this.videoUrl = '',
     this.timestamp,
   });
 
@@ -37,7 +40,8 @@ class ChatMessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final bubbleColor = isMe ? AppColors.goldPrimary : Colors.grey[850]!;
     final textColor = isMe ? Colors.black : Colors.white;
-    final showText = message.isNotEmpty && !(imageUrl.isNotEmpty && message == '📷 Photo');
+    final hasMedia = imageUrl.isNotEmpty || videoUrl.isNotEmpty;
+    final showText = message.isNotEmpty && !((hasMedia) && (message == '📷 Photo' || message == '🎬 Video'));
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -60,7 +64,7 @@ class ChatMessageBubble extends StatelessWidget {
                   ),
                 Container(
                   constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.76),
-                  padding: EdgeInsets.all(imageUrl.isNotEmpty ? 5 : 11),
+                  padding: EdgeInsets.all(hasMedia ? 5 : 11),
                   decoration: BoxDecoration(
                     color: bubbleColor,
                     borderRadius: BorderRadius.only(
@@ -90,9 +94,14 @@ class ChatMessageBubble extends StatelessWidget {
                             ),
                           ),
                         ),
+                      if (videoUrl.isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: NetworkVideoPlayer(url: videoUrl, height: 220),
+                        ),
                       if (showText)
                         Padding(
-                          padding: EdgeInsets.only(left: imageUrl.isNotEmpty ? 7 : 0, right: imageUrl.isNotEmpty ? 7 : 0, top: imageUrl.isNotEmpty ? 7 : 0),
+                          padding: EdgeInsets.only(left: hasMedia ? 7 : 0, right: hasMedia ? 7 : 0, top: hasMedia ? 7 : 0),
                           child: Text(message, style: TextStyle(color: textColor, fontSize: 15, height: 1.25)),
                         ),
                     ],

@@ -46,4 +46,34 @@ class CloudinaryService {
     }
     return secureUrl;
   }
+
+  /// อัปโหลดข้อมูลวิดีโอไปยัง Cloudinary resource type `video` และคืน secure URL.
+  /// filename ควรมีนามสกุลเดิมเพื่อให้ Cloudinary ตรวจรูปแบบไฟล์ได้ถูกต้อง.
+  static Future<String> uploadVideo(
+    Uint8List videoBytes, {
+    required String filenamePrefix,
+    required String filename,
+  }) async {
+    final uri = Uri.parse(
+      'https://api.cloudinary.com/v1_1/$_cloudName/video/upload',
+    );
+    final request = http.MultipartRequest('POST', uri)
+      ..fields['upload_preset'] = _uploadPreset
+      ..files.add(http.MultipartFile.fromBytes(
+        'file',
+        videoBytes,
+        filename: '${filenamePrefix}_${DateTime.now().millisecondsSinceEpoch}_$filename',
+      ));
+
+    final response = await http.Response.fromStream(await request.send());
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Cloudinary video upload failed (${response.statusCode}).');
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final secureUrl = data['secure_url'];
+    if (secureUrl is! String || secureUrl.isEmpty) {
+      throw const FormatException('Cloudinary response has no secure_url.');
+    }
+    return secureUrl;
+  }
 }

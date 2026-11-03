@@ -1,6 +1,7 @@
 /// SIGMA888: แสดงโปรไฟล์ผู้ใช้อื่น พร้อมติดตาม เป็นเพื่อน บล็อก และรายงาน
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -31,6 +32,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   bool _incomingRequest = false;
   bool _blockedByMe = false;
   bool _blockedMe = false;
+  bool _isPrivateProfile = false;
   int _profileRefreshKey = 0;
   String? _loadError;
 
@@ -65,7 +67,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       _loadError = null;
     });
     try {
-      final profileFuture = _firestore.collection('users').doc(widget.userId).get();
       final relationshipFutures = await Future.wait([
         _firestore.collection('users').doc(currentUid).collection('following').doc(widget.userId).get(),
         _firestore.collection('users').doc(widget.userId).collection('friendRequests').doc(currentUid).get(),
@@ -74,17 +75,41 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _firestore.collection('users').doc(currentUid).collection('blocked').doc(widget.userId).get(),
         _firestore.collection('users').doc(currentUid).collection('blockedBy').doc(widget.userId).get(),
       ]);
-      final profileSnapshot = await profileFuture;
-      if (!mounted) return;
-
       setState(() {
-        _profile = profileSnapshot.data();
         _isFollowing = relationshipFutures[0].exists;
         _outgoingRequest = relationshipFutures[1].exists;
         _incomingRequest = relationshipFutures[2].exists;
         _areFriends = relationshipFutures[3].exists;
         _blockedByMe = relationshipFutures[4].exists;
         _blockedMe = relationshipFutures[5].exists;
+        _isPrivateProfile = false;
+      });
+      final directorySnapshot = await _firestore.collection('user_directory').doc(widget.userId).get();
+      if (!directorySnapshot.exists) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _loadError = 'This user could not be found.';
+        });
+        return;
+      }
+      final directory = directorySnapshot.data() ?? <String, dynamic>{};
+      final isPrivate = directory['isPrivate'] == true;
+      if (!mounted) return;
+      setState(() {
+        _profile = directory;
+        _isPrivateProfile = isPrivate;
+      });
+
+      if (isPrivate && !_isFollowing && currentUid != widget.userId) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final profileSnapshot = await _firestore.collection('users').doc(widget.userId).get();
+      if (!mounted) return;
+      setState(() {
+        _profile = {...directory, ...?profileSnapshot.data()};
         _isLoading = false;
         if (!profileSnapshot.exists) _loadError = 'This user could not be found.';
       });
@@ -92,7 +117,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _loadError = 'Could not load this profile. Please try again.';
+        if (error is FirebaseException && error.code == 'permission-denied') {
+          _isPrivateProfile = true;
+          _loadError = null;
+        } else {
+          _loadError = 'Could not load this profile. Please try again.';
+        }
       });
     }
   }
@@ -298,6 +328,29 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
 
     final isOwnProfile = currentUid == widget.userId;
+    if (_isPrivateProfile && !_isFollowing && !isOwnProfile) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(backgroundColor: AppColors.background, iconTheme: const IconThemeData(color: Colors.white)),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.lock_outline, size: 64, color: AppColors.goldPrimary),
+                const SizedBox(height: 14),
+                const Text('This account is private', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text('Follow this account to view its profile and posts.', textAlign: TextAlign.center, style: TextStyle(color: AppColors.textMuted)),
+                const SizedBox(height: 20),
+                SizedBox(width: double.infinity, child: _buildProfileActions('User')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return InstagramProfileLayout(
       key: ValueKey('${widget.userId}-$_profileRefreshKey'),
       userId: widget.userId,
@@ -306,6 +359,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       photoUrl: photoUrl,
       bio: (profile?['bio'] ?? '').toString(),
       isOwnProfile: isOwnProfile,
+      isPrivateProfile: profile?['isPrivate'] == true,
       actionButtons: isOwnProfile ? const SizedBox.shrink() : _buildProfileActions(name),
     );
   }

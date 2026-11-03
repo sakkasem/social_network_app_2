@@ -70,7 +70,7 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance.collection('users').snapshots(),
+              stream: FirebaseFirestore.instance.collection('user_directory').snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(

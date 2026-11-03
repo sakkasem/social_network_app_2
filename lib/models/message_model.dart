@@ -9,6 +9,7 @@ class MessageModel {
   final String receiverId;
   final String message;
   final String imageUrl;
+  final String videoUrl;
   final Timestamp timestamp;
 
   MessageModel({
@@ -17,6 +18,7 @@ class MessageModel {
     required this.receiverId,
     required this.message,
     this.imageUrl = '',
+    this.videoUrl = '',
     required this.timestamp,
   });
 
@@ -27,6 +29,7 @@ class MessageModel {
       receiverId: map['receiverId'] ?? '',
       message: map['message'] ?? '',
       imageUrl: (map['imageUrl'] ?? '').toString(),
+      videoUrl: (map['videoUrl'] ?? '').toString(),
       timestamp: map['timestamp'] ?? Timestamp.now(),
     );
   }
@@ -37,6 +40,7 @@ class MessageModel {
       'receiverId': receiverId,
       'message': message,
       'imageUrl': imageUrl,
+      'videoUrl': videoUrl,
       'timestamp': timestamp,
     };
   }

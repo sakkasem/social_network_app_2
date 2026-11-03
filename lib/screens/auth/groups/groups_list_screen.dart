@@ -87,16 +87,18 @@ class _GroupsListScreenState extends State<GroupsListScreen> {
 
   // ฟังก์ชันเข้าร่วม / ออกจากกลุ่ม
   void _toggleJoinGroup(String groupId, List<String> members, String currentUserId) async {
-    List<String> updatedMembers = List.from(members);
-    if (updatedMembers.contains(currentUserId)) {
-      updatedMembers.remove(currentUserId);
-    } else {
-      updatedMembers.add(currentUserId);
+    final isMember = members.contains(currentUserId);
+    try {
+      await FirebaseFirestore.instance.collection('groups').doc(groupId).update({
+        'members': isMember
+            ? FieldValue.arrayRemove([currentUserId])
+            : FieldValue.arrayUnion([currentUserId]),
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not update group membership.')));
+      }
     }
-
-    await FirebaseFirestore.instance.collection('groups').doc(groupId).update({
-      'members': updatedMembers,
-    });
   }
 
   @override

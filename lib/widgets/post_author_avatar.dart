@@ -22,7 +22,7 @@ class PostAuthorAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+        stream: FirebaseFirestore.instance.collection('user_directory').doc(uid).snapshots(),
         builder: (context, snapshot) {
           final profile = snapshot.data?.data();
           final currentName = (profile?['displayName'] ?? displayName).toString();

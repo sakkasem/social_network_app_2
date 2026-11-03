@@ -41,6 +41,102 @@ class GroupManagementScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _editGroup(BuildContext context) async {
+    final nameController = TextEditingController(text: groupName);
+    final descriptionController = TextEditingController();
+    final groupRef = FirebaseFirestore.instance.collection('groups').doc(groupId);
+    try {
+      final snapshot = await groupRef.get();
+      if (!context.mounted || !snapshot.exists) return;
+      descriptionController.text = (snapshot.data()?['description'] ?? '').toString();
+      final save = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppColors.cardBg,
+          title: const Text('Edit group', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, maxLength: 80, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Group name')),
+              TextField(controller: descriptionController, maxLength: 500, maxLines: 3, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Description')),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Save')),
+          ],
+        ),
+      );
+      if (save != true || !context.mounted) return;
+      final name = nameController.text.trim();
+      final description = descriptionController.text.trim();
+      if (name.isEmpty || name.length > 80 || description.length > 500) return;
+      final currentUid = context.read<AuthProvider>().currentUser?.uid;
+      if (snapshot.data()?['createdBy'] != currentUid) return;
+      await groupRef.update({'name': name, 'description': description});
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group details updated.')));
+        Navigator.pop(context, name);
+      }
+    } catch (_) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not update group details.')));
+    } finally {
+      nameController.dispose();
+      descriptionController.dispose();
+    }
+  }
+
+  Future<void> _deleteGroup(BuildContext context) async {
+    final currentUid = context.read<AuthProvider>().currentUser?.uid;
+    final groupRef = FirebaseFirestore.instance.collection('groups').doc(groupId);
+    if (currentUid == null) return;
+    final group = await groupRef.get();
+    if (!group.exists || group.data()?['createdBy'] != currentUid || !context.mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.cardBg,
+        title: const Text('Delete group?', style: TextStyle(color: Colors.white)),
+        content: const Text('This permanently removes the group, its posts, comments, and messages.', style: TextStyle(color: AppColors.textMuted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Delete', style: TextStyle(color: Colors.redAccent))),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await _deleteCollection(groupRef.collection('messages'));
+      final posts = await groupRef.collection('posts').get();
+      for (final post in posts.docs) {
+        await _deleteCollection(post.reference.collection('comments'));
+      }
+      for (var start = 0; start < posts.docs.length; start += 450) {
+        final batch = FirebaseFirestore.instance.batch();
+        for (final post in posts.docs.skip(start).take(450)) {
+          batch.delete(post.reference);
+        }
+        await batch.commit();
+      }
+      await groupRef.delete();
+      if (context.mounted) Navigator.pop(context, 'deleted');
+    } catch (_) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not delete group data. Please try again.')));
+    }
+  }
+
+  Future<void> _deleteCollection(Query<Map<String, dynamic>> query) async {
+    while (true) {
+      final docs = await query.limit(450).get();
+      if (docs.docs.isEmpty) break;
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in docs.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUid = context.watch<AuthProvider>().currentUser?.uid;
@@ -50,6 +146,10 @@ class GroupManagementScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         title: Text('$groupName members', style: const TextStyle(color: AppColors.goldPrimary, fontSize: 16)),
+        actions: [
+          IconButton(tooltip: 'Edit group', onPressed: () => _editGroup(context), icon: const Icon(Icons.edit_outlined, color: AppColors.goldPrimary)),
+          IconButton(tooltip: 'Delete group', onPressed: () => _deleteGroup(context), icon: const Icon(Icons.delete_outline, color: Colors.redAccent)),
+        ],
       ),
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: groupRef.snapshots(),
@@ -71,7 +171,7 @@ class GroupManagementScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final uid = members[index];
               return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                future: FirebaseFirestore.instance.collection('users').doc(uid).get(),
+                future: FirebaseFirestore.instance.collection('user_directory').doc(uid).get(),
                 builder: (context, userSnapshot) {
                   final user = userSnapshot.data?.data();
                   final name = (user?['displayName'] ?? 'Member').toString();

@@ -34,17 +34,57 @@ class ProfileScreen extends StatelessWidget {
   /// แสดงตัวเลือกบัญชีและคำสั่งออกจากระบบ.
   void _showSettings(BuildContext context, UserModel user) {
     final auth = context.read<AuthProvider>();
+    var isPrivate = user.isPrivate;
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.cardBg,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
+      builder: (sheetContext) => StatefulBuilder(builder: (sheetContext, setSheetState) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const ListTile(title: Text('Account settings', style: TextStyle(color: AppColors.goldPrimary, fontWeight: FontWeight.bold))),
             ListTile(leading: const Icon(Icons.email_outlined, color: AppColors.goldPrimary), title: Text(user.email, style: const TextStyle(color: Colors.white))),
             ListTile(leading: const Icon(Icons.fingerprint, color: AppColors.goldPrimary), title: Text(user.uid, style: const TextStyle(color: AppColors.textMuted))),
+            SwitchListTile(
+              value: isPrivate,
+              activeColor: AppColors.goldPrimary,
+              title: const Text('Private account', style: TextStyle(color: Colors.white)),
+              subtitle: const Text('Only approved followers can view your posts.', style: TextStyle(color: AppColors.textMuted)),
+              onChanged: (value) async {
+                setSheetState(() => isPrivate = value);
+                try {
+                  final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+                  await userRef.update({'privacyChanging': true, 'privacyTargetPrivate': value});
+                  final posts = FirebaseFirestore.instance.collection('posts').where('uid', isEqualTo: user.uid);
+                  final postDocs = await posts.get();
+                  for (var start = 0; start < postDocs.docs.length; start += 450) {
+                    final batch = FirebaseFirestore.instance.batch();
+                    for (final doc in postDocs.docs.skip(start).take(450)) {
+                      batch.update(doc.reference, {'visibility': value ? 'followers' : 'public'});
+                    }
+                    await batch.commit();
+                  }
+                  await userRef.update({
+                    'isPrivate': value,
+                    'privacyChanging': false,
+                    'privacyTargetPrivate': value,
+                  });
+                  await FirebaseFirestore.instance.collection('user_directory').doc(user.uid).update({'isPrivate': value});
+                  await auth.reloadUserData();
+                } catch (_) {
+                  try {
+                    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({'privacyChanging': false});
+                  } catch (_) {}
+                  if (sheetContext.mounted) {
+                    setSheetState(() => isPrivate = !value);
+                    ScaffoldMessenger.of(sheetContext).showSnackBar(
+                      const SnackBar(content: Text('Could not update account privacy. Please try again.')),
+                    );
+                  }
+                }
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.redAccent),
               title: const Text('Log Out', style: TextStyle(color: Colors.redAccent)),
@@ -63,7 +103,7 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 12),
           ],
         ),
-      ),
+      )),
     );
   }
 
@@ -85,6 +125,7 @@ class ProfileScreen extends StatelessWidget {
       photoUrl: user.photoUrl ?? '',
       bio: user.bio,
       isOwnProfile: true,
+      isPrivateProfile: user.isPrivate,
       actionButtons: Row(
         children: [
           Expanded(
@@ -174,6 +215,13 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
         'displayName': name,
         'bio': bio,
         'photoUrl': photoUrl,
+      });
+      await FirebaseFirestore.instance.collection('user_directory').doc(widget.user.uid).set({
+        'uid': widget.user.uid,
+        'username': widget.user.username,
+        'displayName': name,
+        'photoUrl': photoUrl,
+        'isPrivate': widget.user.isPrivate,
       });
       await context.read<AuthProvider>().reloadUserData();
       if (mounted) Navigator.pop(context, true);

@@ -83,6 +83,38 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
+  Future<void> _pickAndSendVideo() async {
+    final currentUser = context.read<AuthProvider>().currentUser;
+    if (currentUser == null || currentUser.uid == widget.receiverId || _isSending) return;
+    try {
+      final picked = await ImagePicker().pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 2),
+      );
+      if (picked == null || !mounted) return;
+      setState(() => _isSending = true);
+      final videoUrl = await CloudinaryService.uploadVideo(
+        await picked.readAsBytes(),
+        filenamePrefix: 'chat_${currentUser.uid}',
+        filename: picked.name,
+      );
+      await _persistMessage(
+        senderId: currentUser.uid,
+        senderName: currentUser.displayName,
+        text: '🎬 Video',
+        videoUrl: videoUrl,
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('อัปโหลดหรือส่งวิดีโอไม่สำเร็จ กรุณาลองใหม่')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
   /// บันทึกข้อความและปรับ metadata ห้องแชตใน transaction เดียวกัน.
   /// รับผู้ส่ง ข้อความ และ URL รูปที่อาจไม่มี; ไม่คืนค่าเมื่อเขียนสำเร็จ.
   Future<void> _persistMessage({
@@ -90,12 +122,13 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     required String senderName,
     required String text,
     String imageUrl = '',
+    String videoUrl = '',
   }) async {
     final roomId = _chatRoomId(senderId, widget.receiverId);
     final participants = [senderId, widget.receiverId]..sort((a, b) => b.compareTo(a));
     final roomRef = _firestore.collection('chat_rooms').doc(roomId);
     final messageRef = roomRef.collection('messages').doc();
-    final lastMessage = imageUrl.isEmpty ? text : '📷 Photo';
+    final lastMessage = videoUrl.isNotEmpty ? '🎬 Video' : (imageUrl.isEmpty ? text : '📷 Photo');
 
     // อ่านห้องก่อน: สร้าง metadata เมื่อเป็นการคุยครั้งแรก หรืออัปเดตข้อความล่าสุด
     await _firestore.runTransaction((transaction) async {
@@ -123,7 +156,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         'receiverId': widget.receiverId,
         'message': text,
         'imageUrl': imageUrl,
-        'type': imageUrl.isEmpty ? 'text' : 'image',
+        'videoUrl': videoUrl,
+        'type': videoUrl.isNotEmpty ? 'video' : (imageUrl.isEmpty ? 'text' : 'image'),
         'timestamp': FieldValue.serverTimestamp(),
       });
     });
@@ -188,6 +222,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                       isMe: isMe,
                       message: message.message,
                       imageUrl: message.imageUrl,
+                      videoUrl: message.videoUrl,
                       timestamp: message.timestamp,
                     );
                   },
@@ -201,6 +236,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
             isBusy: _isSending,
             onSend: _sendMessage,
             onPickImage: _pickAndSendImage,
+            onPickVideo: _pickAndSendVideo,
           ),
         ],
       ),
