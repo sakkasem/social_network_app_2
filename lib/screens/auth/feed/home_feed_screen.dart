@@ -14,6 +14,7 @@ import '/widgets/network_video_player.dart';
 import '/widgets/post_engagement_bar.dart';
 import '/services/post_engagement_service.dart';
 import '/widgets/hashtag_text.dart';
+import '/screens/auth/profile/user_profile_screen.dart';
 
 /// HomeFeedScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 class HomeFeedScreen extends StatefulWidget {
@@ -726,33 +727,56 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
                           // ส่วนหัว
                           Row(
                             children: [
-                              PostAuthorAvatar(
-                                uid: post.uid,
-                                displayName: post.displayName,
-                                photoUrl: post.userPhotoUrl,
-                                radius: 18,
-                              ),
-                              const SizedBox(width: 12),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      post.displayName,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  mouseCursor: SystemMouseCursors.click,
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          UserProfileScreen(userId: post.uid),
                                     ),
-                                    Text(
-                                      '@${post.username}',
-                                      style: const TextStyle(
-                                        color: AppColors.textMuted,
-                                        fontSize: 12,
-                                      ),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4,
                                     ),
-                                  ],
+                                    child: Row(
+                                      children: [
+                                        PostAuthorAvatar(
+                                          uid: post.uid,
+                                          displayName: post.displayName,
+                                          photoUrl: post.userPhotoUrl,
+                                          radius: 18,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                post.displayName,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                              Text(
+                                                '@${post.username}',
+                                                style: const TextStyle(
+                                                  color: AppColors.textMuted,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                               PopupMenuButton<String>(
