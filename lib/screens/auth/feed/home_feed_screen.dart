@@ -15,6 +15,7 @@ import '/widgets/network_video_player.dart';
 import '/widgets/post_engagement_bar.dart';
 import '/services/post_engagement_service.dart';
 import '/widgets/hashtag_text.dart';
+import '/widgets/notification_bell.dart';
 import '/screens/auth/profile/user_profile_screen.dart';
 
 /// HomeFeedScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
@@ -652,6 +653,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
             letterSpacing: 1,
           ),
         ),
+        actions: const [NotificationBell()],
       ),
       body: _blockListError != null
           ? Center(

@@ -1,6 +1,8 @@
 // บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/chat/chat_room_screen.dart).
 /// SIGMA888: แสดงและส่งข้อความหรือรูปภาพในการสนทนาส่วนตัว
 
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,6 +19,9 @@ import '/widgets/post_author_avatar.dart';
 /// ChatRoomScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
 // หน้าสนทนา 1-1 แสดงข้อความและรองรับการส่งข้อความ รูปภาพ และวิดีโอ
 class ChatRoomScreen extends StatefulWidget {
+  /// ห้องที่ผู้ใช้เปิดดูอยู่ตอนนี้ (ใช้กันไม่ให้เด้งแจ้งเตือนของห้องที่กำลังคุยอยู่)
+  static String? activeRoomId;
+
   final String receiverId;
   final String receiverName;
 
@@ -54,7 +59,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     setState(() => _isSending = true);
     try {
       await _persistMessage(senderId: currentUser.uid, senderName: currentUser.displayName, text: text);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SEND MESSAGE ERROR: $e');
       if (mounted) {
         _messageController.text = text;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not send message. Please try again.')));
@@ -81,7 +87,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         text: '📷 Photo',
         imageUrl: imageUrl,
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SEND MESSAGE ERROR: $e');
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not upload or send the photo. Please try again.')));
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -110,7 +117,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         text: '🎬 Video',
         videoUrl: videoUrl,
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SEND MESSAGE ERROR: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('อัปโหลดหรือส่งวิดีโอไม่สำเร็จ กรุณาลองใหม่')),
@@ -168,10 +176,45 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         'timestamp': FieldValue.serverTimestamp(),
       });
     });
+
+    // เพิ่มตัวนับ "ยังไม่อ่าน" ของผู้รับ แยกจาก transaction ข้างบน
+    // ถ้า Firestore Rules ไม่อนุญาต ข้อความก็ยังส่งได้ปกติ แค่ไม่มีเลขแจ้งเตือน
+    try {
+      await roomRef.update({
+        'unreadCounts.${widget.receiverId}': FieldValue.increment(1),
+      });
+    } catch (e) {
+      debugPrint('Could not update unread count (check Firestore rules): $e');
+    }
+  }
+
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _roomSub;
+
+  @override
+  void initState() {
+    super.initState();
+    final uid = context.read<AuthProvider>().currentUser?.uid;
+    if (uid == null) return;
+    final roomId = _chatRoomId(uid, widget.receiverId);
+    ChatRoomScreen.activeRoomId = roomId;
+    // ขณะเปิดห้องนี้อยู่ ถ้ามีข้อความใหม่เข้ามา ให้รีเซ็ตตัวนับยังไม่อ่านของเราเป็น 0
+    _roomSub = _firestore.collection('chat_rooms').doc(roomId).snapshots().listen(
+      (room) {
+        final counts = Map<String, dynamic>.from(room.data()?['unreadCounts'] ?? const {});
+        if (room.exists && ((counts[uid] as num?) ?? 0) > 0) {
+          room.reference.update({'unreadCounts.$uid': 0}).catchError(
+            (e) => debugPrint('Could not mark chat as read: $e'),
+          );
+        }
+      },
+      onError: (e) => debugPrint('Chat room listener error: $e'),
+    );
   }
 
   @override
   void dispose() {
+    _roomSub?.cancel();
+    ChatRoomScreen.activeRoomId = null;
     _messageController.dispose();
     super.dispose();
   }

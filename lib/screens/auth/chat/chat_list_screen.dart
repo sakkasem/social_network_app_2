@@ -121,8 +121,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
               final preview = (data['lastMessage'] ?? '').toString();
               final subtitle = lastSenderId == currentUserId ? 'You: $preview' : preview;
               final lastMessageAt = data['lastMessageAt'] as Timestamp?;
+              final unreadCounts = Map<String, dynamic>.from(data['unreadCounts'] ?? const {});
+              final unread = ((unreadCounts[currentUserId] as num?) ?? 0).toInt();
+              final hasUnread = unread > 0;
 
               return ListTile(
+                tileColor: hasUnread ? AppColors.goldPrimary.withOpacity(0.06) : null,
                 leading: CircleAvatar(
                   backgroundColor: AppColors.goldPrimary,
                   child: Text(
@@ -135,11 +139,31 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.textMuted),
+                  style: TextStyle(
+                    color: hasUnread ? Colors.white : AppColors.textMuted,
+                    fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
+                  ),
                 ),
-                trailing: Text(
-                  _formatTime(lastMessageAt),
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      _formatTime(lastMessageAt),
+                      style: TextStyle(
+                        color: hasUnread ? AppColors.goldPrimary : AppColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (hasUnread) ...[
+                      const SizedBox(height: 4),
+                      Badge(
+                        label: Text(unread > 99 ? '99+' : '$unread'),
+                        backgroundColor: AppColors.goldPrimary,
+                        textColor: Colors.black,
+                      ),
+                    ],
+                  ],
                 ),
                 onTap: () => Navigator.push(
                   context,
