@@ -1,3 +1,4 @@
+// บทบาทไฟล์: หน้าจอส่วน รายการและการเข้าร่วมกลุ่ม (lib/screens/auth/groups/groups_list_screen.dart).
 /// SIGMA888: แสดงกลุ่มและจัดการสร้าง เข้าร่วม หรือออกจากกลุ่ม
 
 import 'package:flutter/material.dart';

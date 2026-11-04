@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/feed/create_post_screen.dart).
 /// SIGMA888: เลือกภาพ อัปโหลด Cloudinary และสร้างโพสต์ใน Feed หลัก
 
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,7 @@ import '/services/cloudinary_service.dart';
 import '/widgets/hashtag_text.dart';
 
 /// CreatePostScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
+// หน้าสร้างโพสต์ รองรับข้อความและสื่อที่ผู้ใช้เลือกก่อนบันทึกลง Firestore
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({super.key});
 
@@ -28,6 +30,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   bool _isLoading = false;
 
   /// เปิดแกลเลอรีและเก็บไบต์รูปที่เลือกไว้ใน state เพื่อแสดงตัวอย่างก่อนโพสต์.
+  // เปิดตัวเลือกภาพและเก็บไฟล์ที่เลือกไว้เพื่อแสดงตัวอย่างก่อนส่ง
   Future<void> _pickImage() async {
     try {
       final picker = ImagePicker();
@@ -58,6 +61,8 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   /// โหลดโปรไฟล์ล่าสุด อัปโหลดรูปถ้ามี และสร้างเอกสารโพสต์ใน Firestore.
   /// แสดงข้อผิดพลาดแก่ผู้ใช้ และคืนสถานะ loading เมื่อทำงานเสร็จ.
+  // ตรวจข้อมูล อัปโหลดสื่อผ่าน Cloudinary และสร้างเอกสารโพสต์
+  // try-catch จัดการข้อผิดพลาดจากการอัปโหลด/Firestore แล้วแจ้งผู้ใช้ผ่าน UI
   Future<void> _submitPost() async {
     if (_contentController.text.trim().isEmpty &&
         _imageBytes == null &&
@@ -154,6 +159,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
+  // เปิดตัวเลือกวิดีโอและเก็บไฟล์ไว้ใช้แสดงตัวอย่างก่อนเผยแพร่
   Future<void> _pickVideo() async {
     try {
       final file = await ImagePicker().pickVideo(
@@ -181,6 +187,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   @override
+  // คืนทรัพยากรของ controller เมื่อปิดหน้าจอ
   void dispose() {
     _contentController.dispose();
     super.dispose();
@@ -188,6 +195,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
 
   /// สร้างหน้าจอกรอกเนื้อหา แนบรูปตัวอย่าง และเรียกส่งโพสต์.
   @override
+  // สร้างฟอร์มโพสต์ ตัวเลือก/ตัวอย่างสื่อ และปุ่มเผยแพร่ตามสถานะการบันทึก
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,

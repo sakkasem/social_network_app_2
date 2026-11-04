@@ -1,3 +1,4 @@
+// บทบาทไฟล์: เรียกใช้บริการภายนอกและงานข้อมูลส่วนกลาง (lib/services/cloudinary_service.dart).
 /// SIGMA888: อัปโหลดรูปภาพแบบ unsigned ไป Cloudinary และคืน URL ที่ใช้แสดงผล
 
 import 'dart:convert';
@@ -6,6 +7,7 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 /// CloudinaryService รวมการเรียกใช้บริการภายนอกและซ่อนรายละเอียดการเชื่อมต่อไว้จากหน้าจอ.
+// บริการกลางสำหรับอัปโหลดไฟล์สื่อจากแอปไปยัง Cloudinary และคืน URL ที่ใช้แสดงผลได้
 class CloudinaryService {
   // ชื่อ Cloudinary Cloud ที่รับไฟล์อัปโหลดของแอป
   static const _cloudName = 'dn2ukurwr';
@@ -14,6 +16,7 @@ class CloudinaryService {
 
   /// อัปโหลดไบต์รูปภาพไป Cloudinary และคืน URL แบบ HTTPS สำหรับบันทึกใน Firestore.
   /// หากอัปโหลดหรืออ่าน URL ไม่สำเร็จ เมธอดจะโยน Exception ให้หน้าจอจัดการ.
+  // เตรียมไฟล์ภาพและส่งขึ้น Cloudinary; คืน URL เมื่อสำเร็จ และส่งข้อผิดพลาดกลับให้ผู้เรียกจัดการ
   static Future<String> uploadImage(
     Uint8List imageBytes, {
     required String filenamePrefix,
@@ -49,6 +52,7 @@ class CloudinaryService {
 
   /// อัปโหลดข้อมูลวิดีโอไปยัง Cloudinary resource type `video` และคืน secure URL.
   /// filename ควรมีนามสกุลเดิมเพื่อให้ Cloudinary ตรวจรูปแบบไฟล์ได้ถูกต้อง.
+  // เตรียมไฟล์วิดีโอและส่งขึ้น Cloudinary; คืน URL เพื่อนำไปบันทึกหรือเล่นภายหลัง
   static Future<String> uploadVideo(
     Uint8List videoBytes, {
     required String filenamePrefix,

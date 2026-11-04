@@ -1,3 +1,4 @@
+// บทบาทไฟล์: คอมโพเนนต์ Widget ที่นำกลับมาใช้ซ้ำ (lib/widgets/chat_message_bubble.dart).
 /// SIGMA888: แสดง bubble ข้อความหรือภาพ พร้อมผู้ส่งและเวลา
 
 import 'package:cloud_firestore/cloud_firestore.dart';

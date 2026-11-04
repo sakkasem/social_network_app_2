@@ -1,3 +1,4 @@
+// บทบาทไฟล์: ประกาศ Model และการแปลงข้อมูลของโดเมนแอป (lib/models/group_model.dart).
 /// SIGMA888: แทนข้อมูลกลุ่มและจัดการแปลงข้อมูล Firestore
 
 import 'package:cloud_firestore/cloud_firestore.dart';

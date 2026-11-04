@@ -1,3 +1,4 @@
+// บทบาทไฟล์: ประกาศ Model และการแปลงข้อมูลของโดเมนแอป (lib/models/post_model.dart).
 /// SIGMA888: แทนโพสต์ ฟิลด์ผู้เขียน รูปภาพ ไลก์ และเวลา
 
 import 'package:cloud_firestore/cloud_firestore.dart';

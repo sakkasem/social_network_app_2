@@ -1,3 +1,4 @@
+// บทบาทไฟล์: กำหนดค่าพื้นฐานและรูปแบบร่วมของแอป (lib/core/theme/app_theme.dart).
 /// SIGMA888: รวมค่าสีและธีมหลักสำหรับหน้าตาดำ-ทองของ SIGMA888
 
 import 'package:flutter/material.dart';

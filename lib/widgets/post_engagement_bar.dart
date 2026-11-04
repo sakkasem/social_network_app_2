@@ -1,3 +1,4 @@
+// บทบาทไฟล์: คอมโพเนนต์ Widget ที่นำกลับมาใช้ซ้ำ (lib/widgets/post_engagement_bar.dart).
 /// SIGMA888: ปุ่ม Like, Dislike และ Emoji Reaction สำหรับโพสต์.
 
 import 'package:flutter/material.dart';

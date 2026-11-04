@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/register_screen.dart).
 /// SIGMA888: แสดงแบบฟอร์มสมัครบัญชี SIGMA888
 
 import 'package:flutter/material.dart';

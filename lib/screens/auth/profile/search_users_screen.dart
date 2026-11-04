@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/profile/search_users_screen.dart).
 /// SIGMA888: ค้นหาบัญชีผู้ใช้และเปิดหน้าโปรไฟล์
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -9,6 +10,7 @@ import '/providers/auth_provider.dart';
 import 'user_profile_screen.dart';
 
 /// SearchUsersScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
+// หน้าค้นหาสมาชิกจากชื่อหรือ username และเปิดโปรไฟล์จากผลลัพธ์
 class SearchUsersScreen extends StatefulWidget {
   const SearchUsersScreen({super.key});
 
@@ -17,6 +19,7 @@ class SearchUsersScreen extends StatefulWidget {
 }
 
 /// _SearchUsersScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
+// เก็บคำค้นและสถานะที่ใช้แสดงผลลัพธ์บนหน้าค้นหา
 class _SearchUsersScreenState extends State<SearchUsersScreen> {
   final _searchController = TextEditingController();
   String _query = '';
@@ -36,6 +39,7 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
   }
 
   @override
+  // จัดวางช่องค้นหาและผลลัพธ์ พร้อมแสดงสถานะว่างหรือกำลังโหลด
   Widget build(BuildContext context) {
     final currentUserId = Provider.of<AuthProvider>(context).currentUser?.uid;
 

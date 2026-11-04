@@ -1,4 +1,4 @@
-/// SIGMA888: เล่นวิดีโอจาก URL บนเครือข่ายในโพสต์และข้อความแชต.
+// บทบาทไฟล์: คอมโพเนนต์ Widget ที่นำกลับมาใช้ซ้ำ (lib/widgets/network_video_player.dart).
 
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';

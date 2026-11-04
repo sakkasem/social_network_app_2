@@ -1,3 +1,4 @@
+// บทบาทไฟล์: เรียกใช้บริการภายนอกและงานข้อมูลส่วนกลาง (lib/services/post_engagement_service.dart).
 /// SIGMA888: จัดการ atomic การโหวตและ emoji reaction ของโพสต์ใน Firestore.
 
 import 'package:cloud_firestore/cloud_firestore.dart';

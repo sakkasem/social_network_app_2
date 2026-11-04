@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/feed/home_feed_screen.dart).
 /// SIGMA888: แสดง Feed หลักและจัดการไลก์ คอมเมนต์ โพสต์ รายงาน และการบล็อก
 
 import 'dart:async';
@@ -17,6 +18,7 @@ import '/widgets/hashtag_text.dart';
 import '/screens/auth/profile/user_profile_screen.dart';
 
 /// HomeFeedScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
+// หน้าฟีดหลัก แสดงโพสต์ที่ผู้ใช้มีสิทธิ์เห็น พร้อมการโต้ตอบและการดูแลโพสต์
 class HomeFeedScreen extends StatefulWidget {
   const HomeFeedScreen({super.key});
 
@@ -45,6 +47,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   }
 
   /// ฟังรายการที่ผู้ใช้บล็อกและรายการผู้ใช้ที่บล็อกเขา เพื่อกรองโพสต์ทั้งสองทิศทาง.
+  // ฟังรายการบัญชีที่บล็อก/ถูกบล็อก เพื่อนำไปกรองเนื้อหาในฟีด
   void _listenToBlockLists(String? uid) {
     _blockedSubscription?.cancel();
     _blockedBySubscription?.cancel();
@@ -190,6 +193,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   /// สลับสถานะไลก์ของผู้ใช้ปัจจุบันบนโพสต์.
   /// ใช้ atomic array transform เพื่อไม่เขียนทับไลก์ที่เพิ่มพร้อมกันจากอุปกรณ์อื่น.
+  // สลับ Like ด้วย arrayUnion/arrayRemove เพื่อไม่เขียนทับสถานะของผู้ใช้อื่น
   Future<void> _toggleLike(BuildContext context, PostModel post) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final user = authProvider.currentUser;
@@ -231,6 +235,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
+  // สลับ UID ในรายการ Dislike ของโพสต์
   Future<void> _toggleDislike(PostModel post) async {
     final uid = context.read<AuthProvider>().currentUser?.uid;
     if (uid == null) return;
@@ -248,6 +253,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
     }
   }
 
+  // บันทึกหรือยกเลิก Emoji Reaction ของผู้ใช้ปัจจุบัน
   Future<void> _setPostReaction(PostModel post, String? emoji) async {
     final uid = context.read<AuthProvider>().currentUser?.uid;
     if (uid == null) return;
@@ -266,6 +272,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
 
   // ฟังก์ชันแสดง Modal Bottom Sheet สำหรับคอมเมนต์
   /// เปิดตัวแก้ไขข้อความโพสต์และบันทึกข้อความใหม่เมื่อผู้ใช้ยืนยัน.
+  // เปิดขั้นตอนแก้ไขโพสต์และบันทึกข้อความตามสิทธิ์เจ้าของโพสต์
   Future<void> _editPost(PostModel post) async {
     final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
     if (user == null || user.uid != post.uid) return;
@@ -327,6 +334,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   }
 
   /// ขอการยืนยันก่อนลบโพสต์ และตรวจสิทธิ์เจ้าของโพสต์ก่อนเขียนลบ.
+  // ยืนยันก่อนลบ และตรวจว่า UID ปัจจุบันเป็นเจ้าของโพสต์
   Future<void> _confirmDeletePost(PostModel post) async {
     final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
     if (user == null || user.uid != post.uid) return;
@@ -390,6 +398,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   }
 
   /// เปิดหน้าต่างแสดงและเพิ่มคอมเมนต์ของโพสต์ที่ระบุ.
+  // เปิดแผงอ่านและเพิ่มความคิดเห็นของโพสต์ที่ระบุ
   void _showCommentsModal(BuildContext context, String postId) {
     final parentContext = context;
     final TextEditingController commentController = TextEditingController();
@@ -625,6 +634,7 @@ class _HomeFeedScreenState extends State<HomeFeedScreen> {
   }
 
   @override
+  // สร้างฟีด จัดการสถานะสตรีม และวางการ์ดโพสต์ตามข้อมูลล่าสุด
   Widget build(BuildContext context) {
     final currentUserId = Provider.of<AuthProvider>(context).currentUser?.uid;
     final signedInUid = currentUserId ?? '';

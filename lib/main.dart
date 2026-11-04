@@ -1,3 +1,4 @@
+// บทบาทไฟล์: จุดเริ่มต้นหรือการตั้งค่าระดับแอป (lib/main.dart).
 /// SIGMA888: จุดเริ่มต้นแอป ตั้งค่า Firebase, Provider และธีม
 
 import 'package:flutter/material.dart';

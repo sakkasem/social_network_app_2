@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/groups/group_chat_screen.dart).
 /// SIGMA888: แสดงและส่งข้อความหรือรูปภาพในแชตกลุ่ม
 
 import 'package:cloud_firestore/cloud_firestore.dart';

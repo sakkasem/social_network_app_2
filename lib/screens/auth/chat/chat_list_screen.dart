@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/chat/chat_list_screen.dart).
 /// SIGMA888: แสดง Inbox ของห้องสนทนาส่วนตัวที่มีข้อความล่าสุด
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,6 +11,7 @@ import '/screens/auth/profile/search_users_screen.dart';
 import 'chat_room_screen.dart';
 
 /// ChatListScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
+// หน้า Inbox แสดงบทสนทนาล่าสุดและเปิดห้องที่ผู้ใช้เลือก
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
 
@@ -20,6 +22,7 @@ class ChatListScreen extends StatefulWidget {
 /// _ChatListScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
 class _ChatListScreenState extends State<ChatListScreen> {
   @override
+  // แสดงรายการสนทนาจากสตรีม รวมสถานะโหลด ว่าง และผิดพลาดตามผล query
   Widget build(BuildContext context) {
     final currentUserId = Provider.of<AuthProvider>(context).currentUser?.uid;
     if (currentUserId == null) {
@@ -153,6 +156,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 
   /// แปลงเวลาของข้อความล่าสุดเป็นข้อความสั้นที่เหมาะกับรายการ Inbox.
+  // แปลง Timestamp ให้เป็นข้อความเวลาสั้นสำหรับแถว Inbox
   String _formatTime(Timestamp? timestamp) {
     if (timestamp == null) return '';
     final date = timestamp.toDate();

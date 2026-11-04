@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/chat/chat_room_screen.dart).
 /// SIGMA888: แสดงและส่งข้อความหรือรูปภาพในการสนทนาส่วนตัว
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -14,6 +15,7 @@ import '/widgets/chat_message_bubble.dart';
 import '/widgets/post_author_avatar.dart';
 
 /// ChatRoomScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
+// หน้าสนทนา 1-1 แสดงข้อความและรองรับการส่งข้อความ รูปภาพ และวิดีโอ
 class ChatRoomScreen extends StatefulWidget {
   final String receiverId;
   final String receiverName;
@@ -35,12 +37,14 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   bool _isSending = false;
 
   /// สร้าง room id แบบคงที่จาก uid ทั้งคู่ เพื่อให้คู่สนทนาได้ห้องเดียวกัน.
+  // สร้างรหัสห้องแบบคงที่จาก UID ทั้งคู่ เพื่อให้คู่สนทนาเข้าห้องเดียวกัน
   String _chatRoomId(String currentUserId, String targetUserId) =>
       currentUserId.compareTo(targetUserId) > 0
           ? '${currentUserId}_$targetUserId'
           : '${targetUserId}_$currentUserId';
 
   /// ตรวจข้อความและผู้ใช้ก่อนส่งข้อความตัวอักษร พร้อมแจ้งเมื่อส่งไม่สำเร็จ.
+  // ตรวจและส่งข้อความตัวอักษร พร้อมอัปเดตสถานะและจัดการข้อผิดพลาด
   Future<void> _sendMessage() async {
     final currentUser = context.read<AuthProvider>().currentUser;
     final text = _messageController.text.trim();
@@ -61,6 +65,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 
   /// เลือกรูปจากแกลเลอรี อัปโหลด Cloudinary แล้วส่ง URL เป็นข้อความรูปภาพ.
+  // เลือกรูป อัปโหลดผ่าน Cloudinary แล้วบันทึก URL เป็นข้อความภาพ
   Future<void> _pickAndSendImage() async {
     final currentUser = context.read<AuthProvider>().currentUser;
     if (currentUser == null || currentUser.uid == widget.receiverId || _isSending) return;
@@ -83,6 +88,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     }
   }
 
+  // เลือกวิดีโอ อัปโหลดผ่าน Cloudinary แล้วบันทึก URL เป็นข้อความวิดีโอ
   Future<void> _pickAndSendVideo() async {
     final currentUser = context.read<AuthProvider>().currentUser;
     if (currentUser == null || currentUser.uid == widget.receiverId || _isSending) return;
@@ -117,6 +123,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
   /// บันทึกข้อความและปรับ metadata ห้องแชตใน transaction เดียวกัน.
   /// รับผู้ส่ง ข้อความ และ URL รูปที่อาจไม่มี; ไม่คืนค่าเมื่อเขียนสำเร็จ.
+  // บันทึกข้อความและข้อมูลชนิดสื่อใน Firestore ตามพารามิเตอร์ที่ได้รับ
   Future<void> _persistMessage({
     required String senderId,
     required String senderName,
@@ -170,6 +177,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 
   @override
+  // จัดวางแถบห้อง รายการข้อความแบบสตรีม และแถบพิมพ์ข้อความ
   Widget build(BuildContext context) {
     final currentUser = context.watch<AuthProvider>().currentUser;
     final currentUserId = currentUser?.uid ?? '';

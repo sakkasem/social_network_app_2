@@ -1,3 +1,4 @@
+// บทบาทไฟล์: หน้าจอส่วน เข้าสู่ระบบของผู้ใช้ (lib/screens/auth/login_screen.dart).
 /// SIGMA888: แสดงแบบฟอร์มเข้าสู่ระบบและกู้คืนรหัสผ่าน
 
 import 'package:flutter/material.dart';

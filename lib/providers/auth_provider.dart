@@ -1,3 +1,4 @@
+// บทบาทไฟล์: จัดการสถานะและประสานข้อมูลที่ใช้ร่วมกัน (lib/providers/auth_provider.dart).
 /// SIGMA888: จัดการสถานะผู้ใช้ การสมัคร เข้าสู่ระบบ ออกจากระบบ และโหลดโปรไฟล์
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 
 /// Provider สถานะยืนยันตัวตน: เก็บโปรไฟล์ปัจจุบันและประสาน Firebase Auth กับ Firestore.
+// Provider สำหรับสถานะยืนยันตัวตน สมัครสมาชิก เข้าสู่ระบบ และซิงก์ข้อมูลบัญชี
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -16,6 +18,7 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  // ซิงก์ข้อมูลสาธารณะที่จำเป็นลง user directory เพื่อให้ค้นหาและแสดงสมาชิกได้
   Future<void> _syncUserDirectory(UserModel user) {
     return _firestore.collection('user_directory').doc(user.uid).set({
       'uid': user.uid,
@@ -26,6 +29,7 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
+  // เติมฟิลด์ผู้เขียนที่จำเป็นให้โพสต์เก่าของผู้ใช้ เพื่อให้หน้าฟีดแสดงข้อมูลครบ
   Future<void> _backfillOwnPostFields(UserModel user) async {
     final snapshot = await _firestore.collection('posts').where('uid', isEqualTo: user.uid).get();
     final legacyPosts = snapshot.docs.where((doc) => !doc.data().containsKey('visibility')).toList();
@@ -41,6 +45,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   /// สร้างบัญชี Firebase Auth และเอกสารโปรไฟล์ Firestore; คืน true เมื่อสำเร็จ.
+  // สมัครบัญชีจากข้อมูลที่รับมา และคืน true เมื่อสร้างบัญชีพร้อมข้อมูลประกอบสำเร็จ
   Future<bool> signUp({
     required String email,
     required String password,
@@ -81,6 +86,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   /// เข้าสู่ระบบด้วยอีเมล/รหัสผ่านและโหลดโปรไฟล์ Firestore; คืน false เมื่อผิดพลาด.
+  // เข้าสู่ระบบและซิงก์ข้อมูลผู้ใช้ แล้วคืนผลให้หน้าจอตัดสินใจนำทาง
   Future<bool> signIn({
     required String email,
     required String password,
@@ -114,6 +120,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   /// ออกจาก Firebase Auth ล้างผู้ใช้ปัจจุบัน และแจ้งผู้ฟังให้วาดหน้าจอใหม่.
+  // ออกจาก Firebase Auth แล้วแจ้งผู้ฟังให้วาด UI ใหม่ตามสถานะ
   Future<void> signOut() async {
     await _auth.signOut();
     _currentUser = null;
@@ -121,6 +128,7 @@ class AuthProvider with ChangeNotifier {
   }
   
   /// โหลดเอกสารผู้ใช้ที่ล็อกอินอยู่ซ้ำและแจ้งผู้ฟังเมื่อข้อมูลโปรไฟล์เปลี่ยน.
+  // โหลดข้อมูลบัญชีล่าสุดจากแหล่งข้อมูลที่ provider ใช้
   Future<void> reloadUserData() async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
     if (firebaseUser == null) return;

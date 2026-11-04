@@ -1,3 +1,4 @@
+// บทบาทไฟล์: คอมโพเนนต์ Widget ที่นำกลับมาใช้ซ้ำ (lib/widgets/chat_input_bar.dart).
 /// SIGMA888: แสดงแถบพิมพ์แชต ปุ่มรูป อีโมจิ และส่งข้อความ
 
 import 'package:flutter/material.dart';

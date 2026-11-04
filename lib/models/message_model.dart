@@ -1,3 +1,4 @@
+// บทบาทไฟล์: ประกาศ Model และการแปลงข้อมูลของโดเมนแอป (lib/models/message_model.dart).
 /// SIGMA888: แทนข้อความแชต รวมถึงข้อความรูปภาพและเวลา
 
 import 'package:cloud_firestore/cloud_firestore.dart';

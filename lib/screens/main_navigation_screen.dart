@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/main_navigation_screen.dart).
 /// SIGMA888: ประกอบแท็บหลักของแอปและควบคุมหน้าที่เลือกอยู่
 
 import 'package:flutter/material.dart';

@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/groups/group_management_screen.dart).
 /// SIGMA888: ให้ผู้สร้างกลุ่มดูและนำสมาชิกออกจากกลุ่ม
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,12 +9,14 @@ import '/core/theme/app_theme.dart';
 import '/providers/auth_provider.dart';
 
 /// GroupManagementScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
+// เครื่องมือผู้ดูแลกลุ่มสำหรับจัดการสมาชิก รายละเอียด และการลบกลุ่ม
 class GroupManagementScreen extends StatelessWidget {
   final String groupId;
   final String groupName;
 
   const GroupManagementScreen({super.key, required this.groupId, required this.groupName});
 
+  // นำ UID สมาชิกที่ระบุออกจากข้อมูลสมาชิกของกลุ่ม
   Future<void> _removeMember(BuildContext context, String memberUid) async {
     final currentUid = context.read<AuthProvider>().currentUser?.uid;
     if (currentUid == null || memberUid == currentUid) return;
@@ -41,6 +44,7 @@ class GroupManagementScreen extends StatelessWidget {
     }
   }
 
+  // เปิดฟอร์มแก้ไขรายละเอียดและบันทึกค่ากลุ่ม
   Future<void> _editGroup(BuildContext context) async {
     final nameController = TextEditingController(text: groupName);
     final descriptionController = TextEditingController();
@@ -86,6 +90,7 @@ class GroupManagementScreen extends StatelessWidget {
     }
   }
 
+  // ยืนยันการลบกลุ่มและข้อมูลที่เกี่ยวข้องตามขั้นตอนในหน้าจอ
   Future<void> _deleteGroup(BuildContext context) async {
     final currentUid = context.read<AuthProvider>().currentUser?.uid;
     final groupRef = FirebaseFirestore.instance.collection('groups').doc(groupId);
@@ -125,6 +130,7 @@ class GroupManagementScreen extends StatelessWidget {
     }
   }
 
+  // ลบเอกสารตาม query เป็นชุดย่อยเพื่อไม่เกินขีดจำกัด Firestore batch
   Future<void> _deleteCollection(Query<Map<String, dynamic>> query) async {
     while (true) {
       final docs = await query.limit(450).get();

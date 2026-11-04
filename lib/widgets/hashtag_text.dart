@@ -1,3 +1,4 @@
+// บทบาทไฟล์: คอมโพเนนต์ Widget ที่นำกลับมาใช้ซ้ำ (lib/widgets/hashtag_text.dart).
 /// SIGMA888: แสดงแฮชแท็กที่กดได้และเปิดหน้าค้นหาโพสต์ตามแท็ก.
 
 import 'package:flutter/material.dart';

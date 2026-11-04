@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/groups/group_detail_screen.dart).
 /// SIGMA888: แสดงรายละเอียดกลุ่ม Feed สมาชิก และสร้างโพสต์ในกลุ่ม
 
 import 'dart:typed_data';
@@ -21,6 +22,7 @@ import 'group_chat_screen.dart';
 import 'group_management_screen.dart';
 
 /// GroupDetailScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
+// หน้ารายละเอียดกลุ่ม รวมข้อมูลกลุ่ม ฟีด รายชื่อสมาชิก และทางเข้าแชตกลุ่ม
 class GroupDetailScreen extends StatefulWidget {
   final String groupId;
   final String groupName;
@@ -41,6 +43,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   bool _updatingCover = false;
 
   /// เลือกภาพปก อัปโหลด Cloudinary และอัปเดต URL ของกลุ่ม.
+  // เลือกภาพปก อัปโหลดไป Cloudinary และเก็บ URL ไว้ในเอกสารกลุ่ม
   Future<void> _changeCoverPhoto() async {
     try {
       final image = await ImagePicker().pickImage(
@@ -67,6 +70,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   }
 
   /// เข้าร่วมหรือออกจากกลุ่มด้วย atomic array transform บนฟิลด์ members.
+  // เข้าร่วมหรือออกจากกลุ่มโดยปรับรายการสมาชิกตามสถานะปัจจุบัน
   Future<void> _toggleMembership(List<String> members, String uid) async {
     final ref = _firestore.collection('groups').doc(widget.groupId);
     final isMember = members.contains(uid);
@@ -98,6 +102,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  // นำทางไปห้องสนทนาของกลุ่มนี้
   void _openChat() {
     Navigator.push(
       context,
@@ -391,6 +396,7 @@ class _GroupCover extends StatelessWidget {
 }
 
 /// _GroupFeedTab รวมหน้าที่เฉพาะของส่วนประกอบนี้ไว้ในตำแหน่งเดียว.
+// แสดงโพสต์ที่ผูกกับ groupId ของกลุ่มปัจจุบัน
 class _GroupFeedTab extends StatelessWidget {
   final String groupId;
   final bool isMember;
@@ -486,6 +492,7 @@ class _GroupFeedTab extends StatelessWidget {
 }
 
 /// _GroupPostCard รวมหน้าที่เฉพาะของส่วนประกอบนี้ไว้ในตำแหน่งเดียว.
+// การ์ดโพสต์ในกลุ่ม แสดงผู้เขียน สื่อ ปฏิกิริยา และการจัดการโพสต์
 class _GroupPostCard extends StatelessWidget {
   final String groupId;
   final String creatorUid;
@@ -681,6 +688,7 @@ class _GroupPostCard extends StatelessWidget {
     );
   }
 
+  // แก้ไขเนื้อหาโพสต์กลุ่มตามสิทธิ์เจ้าของโพสต์
   Future<void> _editPost(
     BuildContext context,
     DocumentReference<Map<String, dynamic>> postRef,
@@ -732,6 +740,7 @@ class _GroupPostCard extends StatelessWidget {
     }
   }
 
+  // ลบโพสต์กลุ่มหลังยืนยันและตรวจสิทธิ์ผู้ใช้
   Future<void> _deletePost(
     BuildContext context,
     DocumentReference<Map<String, dynamic>> postRef,
@@ -783,6 +792,7 @@ class _GroupPostCard extends StatelessWidget {
     }
   }
 
+  // สลับคะแนนปฏิกิริยาของผู้ใช้ตามรายการที่เมธอดรับมา
   Future<void> _toggleVote(
     BuildContext context,
     DocumentReference<Map<String, dynamic>> postRef,
@@ -806,6 +816,7 @@ class _GroupPostCard extends StatelessWidget {
     }
   }
 
+  // บันทึกหรือยกเลิก Emoji Reaction บนโพสต์กลุ่ม
   Future<void> _setReaction(
     BuildContext context,
     DocumentReference<Map<String, dynamic>> postRef,
@@ -837,6 +848,7 @@ class _GroupPostCard extends StatelessWidget {
   }
 
   /// แสดงคอมเมนต์ของโพสต์ในกลุ่ม และรองรับการเพิ่มคอมเมนต์จากหน้าต่างนี้.
+  // เปิดหน้าต่างคอมเมนต์สำหรับโพสต์กลุ่ม
   static Future<void> _showComments(
     BuildContext context,
     String groupId,
@@ -973,6 +985,7 @@ class _GroupPostCard extends StatelessWidget {
 }
 
 /// _GroupMembersTab รวมหน้าที่เฉพาะของส่วนประกอบนี้ไว้ในตำแหน่งเดียว.
+// แสดงรายชื่อสมาชิกและลิงก์ไปยังหน้าโปรไฟล์ของแต่ละคน
 class _GroupMembersTab extends StatelessWidget {
   final List<String> members;
   final String creatorUid;
@@ -1040,6 +1053,7 @@ class _GroupMembersTab extends StatelessWidget {
 }
 
 /// _CreateGroupPostDialog แสดงกล่องโต้ตอบสำหรับรับข้อมูลหรือยืนยันการทำงาน.
+// Dialog สำหรับสร้างโพสต์ที่บันทึกพร้อม groupId ของกลุ่ม
 class _CreateGroupPostDialog extends StatefulWidget {
   final String groupId;
   const _CreateGroupPostDialog({required this.groupId});
@@ -1104,6 +1118,7 @@ class _CreateGroupPostDialogState extends State<_CreateGroupPostDialog> {
   }
 
   /// อัปโหลดรูปถ้ามี แล้วสร้างโพสต์ใน subcollection ของกลุ่ม.
+  // อัปโหลดสื่อที่เลือกและสร้างเอกสารโพสต์ภายในกลุ่ม
   Future<void> _publish() async {
     final user = context.read<AuthProvider>().currentUser;
     final content = _contentController.text.trim();

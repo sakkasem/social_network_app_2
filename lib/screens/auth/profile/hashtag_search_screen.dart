@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/profile/hashtag_search_screen.dart).
 /// SIGMA888: ค้นหาโพสต์ที่มีแฮชแท็กตรงกับคำค้น.
 
 import 'package:cloud_firestore/cloud_firestore.dart';

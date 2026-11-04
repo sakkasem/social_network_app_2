@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/profile/profile_screen.dart).
 /// SIGMA888: แสดงโปรไฟล์ตนเองและจัดการข้อมูลบัญชี
 
 import 'dart:typed_data';
@@ -15,10 +16,12 @@ import '/screens/auth/profile/profile_layout.dart';
 import '/services/cloudinary_service.dart';
 
 /// ProfileScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
+// หน้าโปรไฟล์ผู้ใช้ปัจจุบัน แสดงข้อมูลส่วนตัวและทางลัดแก้ไข/ตั้งค่า
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   /// เปิด dialog ให้เจ้าของบัญชีแก้ไขข้อมูลโปรไฟล์ของตนเอง.
+  // เปิดฟอร์มแก้ไขโปรไฟล์และส่งค่าที่บันทึกกลับมาใช้แสดงผล
   Future<void> _editProfile(BuildContext context, UserModel user) async {
     final updated = await showDialog<bool>(
       context: context,
@@ -32,6 +35,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   /// แสดงตัวเลือกบัญชีและคำสั่งออกจากระบบ.
+  // แสดงเมนูตั้งค่าที่เกี่ยวข้องกับบัญชีและโปรไฟล์
   void _showSettings(BuildContext context, UserModel user) {
     final auth = context.read<AuthProvider>();
     var isPrivate = user.isPrivate;
@@ -108,6 +112,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   @override
+  // ประกอบส่วนข้อมูลโปรไฟล์และรายการโพสต์ของเจ้าของบัญชี
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.currentUser;
@@ -152,6 +157,7 @@ class ProfileScreen extends StatelessWidget {
 }
 
 /// _EditProfileDialog แสดงกล่องโต้ตอบสำหรับรับข้อมูลหรือยืนยันการทำงาน.
+// Dialog ฟอร์มแก้ไขชื่อ Bio และรูปโปรไฟล์
 class _EditProfileDialog extends StatefulWidget {
   final UserModel user;
   const _EditProfileDialog({required this.user});
@@ -161,6 +167,7 @@ class _EditProfileDialog extends StatefulWidget {
 }
 
 /// _EditProfileDialogState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
+// จัดการค่าฟอร์ม การเลือกรูป และสถานะบันทึกโปรไฟล์
 class _EditProfileDialogState extends State<_EditProfileDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _bioController;
@@ -182,6 +189,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   }
 
   /// เปิดแกลเลอรีและเก็บไบต์รูปใหม่ไว้ก่อนบันทึกโปรไฟล์.
+  // เลือกรูปใหม่และเตรียมไฟล์สำหรับอัปโหลด
   Future<void> _pickPhoto() async {
     try {
       final file = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 75);
@@ -198,6 +206,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   void _message(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
   /// อัปโหลดรูปถ้ามี แล้วบันทึกชื่อ ประวัติ และ URL ลง Firestore/provider.
+  // บันทึกข้อมูลโปรไฟล์ และอัปโหลดรูปผ่านบริการสื่อเมื่อมีไฟล์ใหม่
   Future<void> _save() async {
     final name = _nameController.text.trim();
     final bio = _bioController.text.trim();

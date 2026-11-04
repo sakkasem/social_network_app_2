@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/profile/user_profile_screen.dart).
 /// SIGMA888: แสดงโปรไฟล์ผู้ใช้อื่น พร้อมติดตาม เป็นเพื่อน บล็อก และรายงาน
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,6 +12,7 @@ import '/screens/auth/chat/chat_room_screen.dart';
 import '/screens/auth/profile/profile_layout.dart';
 
 /// UserProfileScreen เป็นหน้าจอของฟีเจอร์ที่ระบุด้วยชื่อคลาสนี้.
+// หน้าโปรไฟล์สมาชิกคนอื่น แสดงข้อมูลสาธารณะและสถานะความสัมพันธ์
 class UserProfileScreen extends StatefulWidget {
   final String userId;
 
@@ -21,6 +23,7 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 /// _UserProfileScreenState จัดการ state, lifecycle และการตอบสนองต่อเหตุการณ์ของหน้าจอที่เกี่ยวข้อง.
+// เก็บข้อมูลโปรไฟล์ สถานะติดตาม/เพื่อน/บล็อก และสถานะการโหลด
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final _firestore = FirebaseFirestore.instance;
   Map<String, dynamic>? _profile;
@@ -40,6 +43,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       Provider.of<AuthProvider>(context, listen: false).currentUser?.uid;
 
   /// คืน document id แบบคงที่เพื่อให้ทั้งสองคนอ้าง friendship document เดียวกัน.
+  // สร้างรหัสความสัมพันธ์คงที่จาก UID ทั้งสองบัญชี
   String _friendshipId(String first, String second) {
     final pair = [first, second]..sort((a, b) => b.compareTo(a));
     return '${pair[0]}_${pair[1]}';
@@ -52,6 +56,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// โหลดโปรไฟล์และสถานะติดตาม/เพื่อน/บล็อกที่เกี่ยวข้องกับผู้ใช้เป้าหมาย.
+  // โหลดเอกสารโปรไฟล์และความสัมพันธ์จาก Firestore เพื่อกำหนดข้อมูลบนหน้า
   Future<void> _loadProfileAndRelationships() async {
     final currentUid = _currentUid;
     if (currentUid == null) {
@@ -128,6 +133,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// ครอบการกระทำ async ด้วยสถานะ busy และจัดการข้อผิดพลาดเพื่อแสดงแก่ผู้ใช้.
+  // ครอบการทำงานแบบ async ด้วยสถานะ busy และจัดการการรีเฟรช UI
   Future<void> _runAction(Future<void> Function() action) async {
     if (_isBusy) return;
     setState(() => _isBusy = true);
@@ -147,6 +153,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// เพิ่มหรือลบเอกสาร following เพื่อเปลี่ยนสถานะติดตาม.
+  // สลับสถานะติดตามของผู้ใช้ปัจจุบันต่อโปรไฟล์เป้าหมาย
   Future<void> _toggleFollow() async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -166,6 +173,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// สร้างคำขอเป็นเพื่อนไปยังผู้ใช้เป้าหมาย.
+  // สร้างคำขอเป็นเพื่อนจากผู้ใช้ปัจจุบันไปยังเจ้าของโปรไฟล์
   Future<void> _sendFriendRequest() async {
     final currentUser = Provider.of<AuthProvider>(context, listen: false).currentUser;
     if (currentUser == null) return;
@@ -183,6 +191,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// ยกเลิกคำขอเป็นเพื่อนที่ผู้ใช้ปัจจุบันส่งออกไป.
+  // ยกเลิกคำขอเป็นเพื่อนที่ผู้ใช้ปัจจุบันส่งไว้
   Future<void> _cancelFriendRequest() async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -195,6 +204,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// ยอมรับคำขอและสร้าง friendship จากนั้นลบคำขอที่รอดำเนินการ.
+  // ยอมรับคำขอเป็นเพื่อนที่เข้ามา
   Future<void> _acceptFriendRequest() async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -214,6 +224,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// ปฏิเสธคำขอเป็นเพื่อนที่เข้ามาและลบเอกสารคำขอนั้น.
+  // ปฏิเสธคำขอเป็นเพื่อนที่เข้ามา
   Future<void> _rejectFriendRequest() async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -226,6 +237,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// ยุติความสัมพันธ์เพื่อนโดยลบเอกสาร friendship ที่ใช้ร่วมกัน.
+  // ยกเลิกความสัมพันธ์เพื่อนระหว่างบัญชีทั้งสอง
   Future<void> _unfriend() async {
     final currentUid = _currentUid;
     if (currentUid == null) return;
@@ -236,6 +248,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// เพิ่ม/ลบรายการบล็อกและเอกสาร mirror ด้วย batch ให้การเปลี่ยนแปลงเป็นชุดเดียว.
+  // บล็อกหรือปลดบล็อกผู้ใช้เป้าหมายแล้วโหลดสถานะใหม่
   Future<void> _toggleBlock() async {
     final currentUid = _currentUid;
     if (currentUid == null || currentUid == widget.userId) return;
@@ -256,6 +269,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   /// ส่งรายงานผู้ใช้ไปยังคอลเลกชัน reports เพื่อให้ตรวจสอบภายหลัง.
+  // สร้างรายงานผู้ใช้เพื่อส่งเข้ากระบวนการดูแลชุมชน
   Future<void> _reportUser() async {
     final reasonController = TextEditingController();
     final reason = await showDialog<String>(
@@ -296,6 +310,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   @override
+  // แสดงสถานะโหลด/ผิดพลาดหรือเนื้อหาโปรไฟล์ตามข้อมูลปัจจุบัน
   Widget build(BuildContext context) {
     final currentUid = _currentUid;
     final profile = _profile;
@@ -364,6 +379,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  // สร้างปุ่มติดตาม ส่งข้อความ หรือจัดการความสัมพันธ์ตามสถานะ
   Widget _buildProfileActions(String name) {
     if (_blockedByMe) {
       return Row(
@@ -419,6 +435,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  // เมนูเพิ่มเติมสำหรับคำสั่งเกี่ยวกับโปรไฟล์ เช่น บล็อกและรายงาน
   Widget _profileMoreMenu() => PopupMenuButton<String>(
         icon: const Icon(Icons.more_horiz, color: AppColors.textMuted),
         color: AppColors.cardBg,

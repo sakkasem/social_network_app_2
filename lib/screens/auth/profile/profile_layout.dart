@@ -1,3 +1,4 @@
+// บทบาทไฟล์: สร้างหน้าจอและการโต้ตอบในส่วนที่ระบุในพาธ (lib/screens/auth/profile/profile_layout.dart).
 /// SIGMA888: ใช้เลย์เอาต์โปรไฟล์แบบ Instagram ร่วมกัน รวมสถิติ ไฮไลต์ และ Grid โพสต์
 
 import 'package:cloud_firestore/cloud_firestore.dart';
